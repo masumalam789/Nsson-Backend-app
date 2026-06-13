@@ -392,9 +392,7 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpires = Date.now() + RESET_TOKEN_EXPIRY_MS;
     await user.save();
 
-    const result = await EmailService.sendForgotPasswordEmail(user, rawToken, {
-      expiresInMinutes: RESET_TOKEN_EXPIRY_MINUTES,
-    });
+    const result = await EmailService.sendForgotPasswordEmail(user, rawToken);
 
     if (!result.success) {
       user.resetPasswordToken   = undefined;
