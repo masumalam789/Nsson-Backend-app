@@ -76,7 +76,7 @@ exports.getUserById = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
   try {
-    const { firstName, lastName, phone, role, status, approvalStatus } = req.body;
+    const { firstName, lastName, phone, email, address, shopDetails, role, status, approvalStatus } = req.body;
     const requestedStatus = approvalStatus !== undefined ? approvalStatus : status;
     const normalizedStatus = requestedStatus !== undefined
       ? normalizeApprovalStatus(requestedStatus)
@@ -89,21 +89,43 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Validate and check email uniqueness if provided
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+      const emailTaken = await User.findOne({ email: email.toLowerCase().trim(), _id: { $ne: req.params.id } });
+      if (emailTaken) {
+        return res.status(409).json({ error: 'Email is already in use by another account' });
+      }
+    }
+
     const updateData = {};
-    if (firstName) updateData.firstName = firstName.trim();
-    if (lastName)  updateData.lastName  = lastName.trim();
-    if (phone)     updateData.phone     = phone.trim();
-    if (role)      updateData.role      = role;
-    if (normalizedStatus) updateData.status = normalizedStatus;
+    if (firstName !== undefined)  updateData.firstName = firstName.trim();
+    if (lastName !== undefined)   updateData.lastName  = lastName.trim();
+    if (phone !== undefined)      updateData.phone     = phone.trim();
+    if (email !== undefined)      updateData.email     = email.toLowerCase().trim();
+    if (address !== undefined)    updateData.address   = address ? address.trim() : '';
+    if (role)                     updateData.role      = role;
+    if (normalizedStatus)         updateData.status    = normalizedStatus;
+
+    // Merge shopDetails sub-fields individually
+    if (shopDetails) {
+      if (shopDetails.shopName        !== undefined) updateData['shopDetails.shopName']        = shopDetails.shopName.trim();
+      if (shopDetails.gstNumber       !== undefined) updateData['shopDetails.gstNumber']       = shopDetails.gstNumber.trim();
+      if (shopDetails.businessAddress !== undefined) updateData['shopDetails.businessAddress'] = shopDetails.businessAddress.trim();
+    }
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No valid fields provided for update' });
     }
 
+    // runValidators: false — partial update, avoid full-doc pre-validate hook
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { ...updateData, updatedAt: new Date() },
-      { new: true, runValidators: true }
+      { $set: { ...updateData, updatedAt: new Date() } },
+      { new: true, runValidators: false }
     ).select('-password -resetPasswordToken -resetPasswordExpires');
 
     if (normalizedStatus && normalizedStatus !== existingUser.status) {
@@ -119,10 +141,7 @@ exports.updateUser = async (req, res) => {
             title: 'Account Approved',
             body: 'Your account has been approved. You can now place orders!',
             category: 'approved',
-            data: {
-              userId: user._id,
-              status: user.status,
-            },
+            data: { userId: user._id, status: user.status },
           },
           { createdBy: req.user?._id || null }
         );
@@ -135,10 +154,7 @@ exports.updateUser = async (req, res) => {
             title: 'Account Suspended',
             body: 'Your account access has been restricted. Contact support.',
             category: 'info',
-            data: {
-              userId: user._id,
-              status: user.status,
-            },
+            data: { userId: user._id, status: user.status },
           },
           { createdBy: req.user?._id || null }
         );
@@ -152,7 +168,7 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// ─── Delete User (admin) ──────────────────────────────────────────────────────
+// ─── Update User Approval Status (admin) ─────────────────────────────────────
 
 exports.updateUserApproval = async (req, res) => {
   try {
@@ -211,6 +227,8 @@ exports.updateUserApproval = async (req, res) => {
   }
 };
 
+// ─── Delete User (admin) ──────────────────────────────────────────────────────
+
 exports.deleteUser = async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
@@ -228,10 +246,6 @@ exports.deleteUser = async (req, res) => {
 
 // ─── Get Pending Users (admin) ────────────────────────────────────────────────
 
-/**
- * GET /auth/users/pending
- * Returns all customers waiting for approval.
- */
 exports.getPendingUsers = async (req, res) => {
   try {
     const users = await User.find({ status: 'pending', role: 'customer' })
@@ -251,10 +265,6 @@ exports.getPendingUsers = async (req, res) => {
 
 // ─── Approve User (admin) ─────────────────────────────────────────────────────
 
-/**
- * PATCH /auth/:id/approve
- * Approves a pending customer account so they can log in.
- */
 exports.approveUser = async (req, res) => {
   try {
     const existingUser = await User.findById(req.params.id)
@@ -285,10 +295,7 @@ exports.approveUser = async (req, res) => {
         title: 'Account Approved',
         body: 'Your account has been approved. You can now place orders!',
         category: 'approved',
-        data: {
-          userId: user._id,
-          status: user.status,
-        },
+        data: { userId: user._id, status: user.status },
       },
       { createdBy: req.user?._id || null }
     );
@@ -305,10 +312,6 @@ exports.approveUser = async (req, res) => {
 
 // ─── Reject User (admin) ──────────────────────────────────────────────────────
 
-/**
- * PATCH /auth/:id/reject
- * Rejects a pending customer account. They will be blocked from logging in.
- */
 exports.rejectUser = async (req, res) => {
   try {
     const existingUser = await User.findById(req.params.id)
@@ -339,10 +342,7 @@ exports.rejectUser = async (req, res) => {
         title: 'Account Suspended',
         body: 'Your account access has been restricted. Contact support.',
         category: 'info',
-        data: {
-          userId: user._id,
-          status: user.status,
-        },
+        data: { userId: user._id, status: user.status },
       },
       { createdBy: req.user?._id || null }
     );

@@ -16,6 +16,7 @@
     "multer-storage-cloudinary": "^4.0.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
+    "nodemon": "^3.1.14",
     "pg-sdk-node": "^2.0.2",
     "razorpay": "^2.9.6",
     "sib-api-v3-sdk": "^8.5.0",

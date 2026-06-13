@@ -1,17 +1,25 @@
 const express = require("express");
-const cors    = require("cors");
-const path    = require("path");
+const cors = require("cors");
+const path = require("path");
 
 const apiRoutes = require("./src/routes/index");
 
 const app = express();
 
-app.use(cors({
-  origin:      ["http://localhost:3000", "https://admin-garage-ecommerencr.vercel.app","https://nsson.netlify.app", "https://admin-garage3-ecommerencr.vercel.app", "http://localhost:3001"],
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  credentials: true,
-   allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://admin-garage-ecommerencr.vercel.app",
+      "https://nsson.netlify.app",
+      "https://admin-garage3-ecommerencr.vercel.app",
+      "http://localhost:3001",
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -46,14 +54,19 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error("Error Stack:", err.stack);
   if (err.name === "ValidationError") {
-    return res.status(400).json({ error: "Validation Error", details: err.message });
+    return res
+      .status(400)
+      .json({ error: "Validation Error", details: err.message });
   }
   if (err.name === "JsonWebTokenError") {
     return res.status(401).json({ error: "Invalid token" });
   }
   res.status(500).json({
     error: "Internal server error",
-    message: process.env.NODE_ENV === "development" ? err.message : "Something went wrong",
+    message:
+      process.env.NODE_ENV === "development"
+        ? err.message
+        : "Something went wrong",
   });
 });
 
