@@ -356,3 +356,29 @@ exports.rejectUser = async (req, res) => {
     return res.status(500).json({ error: 'Failed to reject user' });
   }
 };
+
+exports.getAllAddress = async (req, res) => {
+  try {
+    const user_id = req.user._id;
+
+    if (!user_id) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    const user = await User.findById(user_id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const addresses = await Address.find({ userId: user_id }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: addresses.length,
+      data: addresses,
+    });
+  } catch (error) {
+    console.error('------ ERROR WHILE FETCHING USER ADDRESS -----', error?.message);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};

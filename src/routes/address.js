@@ -10,10 +10,11 @@ const {
   updateAddress,
   deleteAddress,
   setDefaultAddress,
+  getAllAddress
 } = require('../controllers/addressController');
 
 router.post('/', authMiddleware, createAddress);
-// router.get('/', authMiddleware, getMyAddresses);
+router.get('/', authMiddleware, getAllAddress);
 router.get('/:id', authMiddleware, getAddressById);
 router.put('/:id', authMiddleware, updateAddress);
 router.delete('/:id', authMiddleware, deleteAddress);
