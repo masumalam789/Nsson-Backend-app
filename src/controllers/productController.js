@@ -2,6 +2,7 @@ const Product = require("../models/Product");
 const notificationService = require("../services/notificationService");
 const path = require("path");
 const { deleteFile: deleteProductImage } = require("../config/productUpload");
+const { deleteFile } = require("../config/multer")
 
 // const { v4: uuid } = require("uuid");
 const fileUpload = require("../config/multer");
@@ -48,58 +49,40 @@ const uploadedImagePaths = (files = []) =>
 exports.createProduct = async (req, res) => {
   try {
     const {
-      name,
-      description,
-      category,
-      brand,
-      partNumber,
-      price,
-      discount,
-      stock,
-      warrantyMonths,
-      compatibility,
-      specifications,
-      images,
+      name, description, category, brand, partNumber,
+      price, discount, stock, warrantyMonths,
+      compatibility, specifications, images,
     } = req.body;
 
-    // Validate required fields
     if (!name || !category || !brand || !partNumber || price === undefined) {
+      if (req.files?.length) {
+        await Promise.all(req.files.map((f) => deleteFile(f.path)));
+      }
       return res.status(400).json({
         success: false,
         message: "Name, category, brand, partNumber, and price are required",
       });
     }
 
-    const productImages = [
-      ...normalizeBodyImages(images),
-      ...uploadedImagePaths(req.files),
-    ];
+    const urls = req.files.map((file) => file.path);
 
     const product = await Product.create({
-      name,
-      description,
-      category,
-      brand,
-      partNumber,
+      name, description, category, brand, partNumber,
       price,
-      discount: discount || 0,
-      stock: stock || 0,
+      discount:       discount || 0,
+      stock:          stock || 0,
       warrantyMonths: warrantyMonths || 0,
-      compatibility: compatibility || [],
+      compatibility:  compatibility || [],
       specifications: specifications || {},
-      images: productImages,
+      images:         urls,
     });
 
     await notificationService.notifyAllCustomers(
       {
         title: "New Products Added",
-        body: `${product.brand} parts now available. Check the catalog.`,
+        body:  `${product.brand} parts now available. Check the catalog.`,
         category: "info",
-        data: {
-          productId: product._id,
-          name: product.name,
-          brand: product.brand,
-        },
+        data: { productId: product._id, name: product.name, brand: product.brand },
       },
       { createdBy: req.user?._id || null }
     );
@@ -110,6 +93,9 @@ exports.createProduct = async (req, res) => {
       product: serializeProduct(req, product),
     });
   } catch (error) {
+    if (req.files?.length) {
+      await Promise.all(req.files.map((f) => deleteFile(f.path)));
+    }
     res.status(500).json({ error: error.message });
   }
 };
