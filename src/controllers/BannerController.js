@@ -5,11 +5,11 @@ const notificationService = require("../services/notificationService");
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 const buildImageObj = (file) => ({
-  filename:     file.filename,        // just the filename, used for deletion
+  filename:     file.filename,        // cloudinary public_id
   originalName: file.originalname,
   mimetype:     file.mimetype,
   size:         file.size,
-  url:          buildUrl(file.filename),  // ✅ use buildUrl, NOT file.path
+  url:          file.path,            // cloudinary returns full URL in file.path
 });
 
 const getPublicBaseUrl = (req) => {
@@ -20,12 +20,8 @@ const getPublicBaseUrl = (req) => {
   return `${proto}://${req.get("host")}`;
 };
 
-const serializeBanner = (req, banner) => {
-  const obj = typeof banner.toObject === "function" ? banner.toObject() : { ...banner };
-  if (obj.image?.filename) {
-    obj.image.url = `${getPublicBaseUrl(req)}/uploads/banners/${obj.image.filename}`;
-  }
-  return obj;
+const serializeBanner = (_req, banner) => {
+  return typeof banner.toObject === "function" ? banner.toObject() : { ...banner };
 };
 
 const serializeBanners = (req, banners) => banners.map((banner) => serializeBanner(req, banner));

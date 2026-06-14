@@ -1,25 +1,37 @@
 'use strict';
 
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer      = require('multer');
+const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-const UPLOAD_DIR = path.join(__dirname, '../../uploads/banners');
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const basename = path.basename(file.originalname, ext)
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/gi, '')
-      .slice(0, 40)
-      .toLowerCase();
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    cb(null, `banner-${basename}-${unique}${ext}`);
+cloudinary.api.ping()
+  .then(result => console.log('✅ Cloudinary connected:', result))
+  .catch(err  => console.error('❌ Cloudinary connection failed:', err.message));
+
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder:         'banners',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+    public_id: (_req, file) => {
+      const ext      = file.originalname.split('.').pop();
+      const basename = file.originalname
+        .replace(/\.[^/.]+$/, '')
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/gi, '')
+        .slice(0, 40)
+        .toLowerCase();
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+      return `banner-${basename}-${unique}`;
+    },
   },
 });
 
@@ -43,20 +55,29 @@ const upload = multer({
   },
 });
 
-const deleteFile = (filename) => {
-  if (!filename) return;
-  const filePath = path.join(UPLOAD_DIR, filename);
-  fs.unlink(filePath, (err) => {
-    if (err && err.code !== 'ENOENT') {
-      console.error(`Could not delete banner image ${filename}:`, err.message);
+const deleteFile = async (publicIdOrUrl) => {
+  if (!publicIdOrUrl) return;
+  try {
+    // accept either a full URL or a public_id
+    let publicId = publicIdOrUrl;
+    if (publicIdOrUrl.startsWith('http')) {
+      // extract public_id from URL  e.g. ".../banners/banner-xyz-123.jpg"
+      const parts = publicIdOrUrl.split('/');
+      const file  = parts.pop().split('.')[0];          // filename without ext
+      const folder = parts.pop();                        // folder name
+      publicId = `${folder}/${file}`;
     }
-  });
+    await cloudinary.uploader.destroy(publicId);
+  } catch (err) {
+    console.error('Could not delete Cloudinary image:', err.message);
+  }
 };
 
-const buildUrl = (filename) => {
-  if (!filename) return '';
-  const base = process.env.BASE_URL || 'https://garage-admin-backend-1.onrender.com';
-  return `${base}/uploads/banners/${filename}`;
+const buildUrl = (publicIdOrUrl) => {
+  if (!publicIdOrUrl) return '';
+  // if already a full URL (cloudinary returns full URLs), return as-is
+  if (publicIdOrUrl.startsWith('http')) return publicIdOrUrl;
+  return cloudinary.url(publicIdOrUrl);
 };
 
 module.exports = { upload, deleteFile, buildUrl };
