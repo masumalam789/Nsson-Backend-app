@@ -51,20 +51,18 @@ exports.createProduct = async (req, res) => {
     const {
       name, description, category, brand, partNumber,
       price, discount, stock, warrantyMonths,
-      compatibility, specifications, images,
+      compatibility, specifications,
     } = req.body;
 
     if (!name || !category || !brand || !partNumber || price === undefined) {
-      if (req.files?.length) {
-        await Promise.all(req.files.map((f) => deleteFile(f.path)));
-      }
+      req.files?.forEach((f) => deleteFile(f.path)); // ✅ fire and forget
       return res.status(400).json({
         success: false,
         message: "Name, category, brand, partNumber, and price are required",
       });
     }
 
-    const urls = req.files.map((file) => file.path);
+    const urls = (req.files || []).map((file) => file.path);
 
     const product = await Product.create({
       name, description, category, brand, partNumber,
@@ -93,9 +91,7 @@ exports.createProduct = async (req, res) => {
       product: serializeProduct(req, product),
     });
   } catch (error) {
-    if (req.files?.length) {
-      await Promise.all(req.files.map((f) => deleteFile(f.path)));
-    }
+    req.files?.forEach((f) => deleteFile(f.path)); // ✅ fire and forget
     res.status(500).json({ error: error.message });
   }
 };
@@ -145,59 +141,42 @@ exports.getProductById = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const {
-      name,
-      description,
-      category,
-      subcategory,
-      brand,
-      partNumber,
-      price,
-      discount,
-      stock,
-      warrantyMonths,
-      compatibility,
-      specifications,
-      existingImages,
-      removeImages,
+      name, description, category, subcategory, brand, partNumber,
+      price, discount, stock, warrantyMonths,
+      compatibility, specifications,
+      existingImages, removeImages,
     } = req.body;
 
     const product = await Product.findById(req.params.id);
     if (!product) {
-      return res.status(404).json({
-        message: "Product not found",
-        success: false,
-      });
+      req.files?.forEach((f) => deleteFile(f.path)); // ✅ fire and forget
+      return res.status(404).json({ message: "Product not found", success: false });
     }
 
-    if (name !== undefined) product.name = name;
-    if (description !== undefined) product.description = description;
-    if (category !== undefined) product.category = category;
-    if (subcategory !== undefined) product.subcategory = subcategory;
-    if (brand !== undefined) product.brand = brand;
-    if (partNumber !== undefined) product.partNumber = partNumber;
-    if (price !== undefined) product.price = Number(price);
-    if (stock !== undefined) product.stock = Number(stock);
-    if (discount !== undefined) product.discount = Number(discount);
+    if (name           !== undefined) product.name           = name;
+    if (description    !== undefined) product.description    = description;
+    if (category       !== undefined) product.category       = category;
+    if (subcategory    !== undefined) product.subcategory    = subcategory;
+    if (brand          !== undefined) product.brand          = brand;
+    if (partNumber     !== undefined) product.partNumber     = partNumber;
+    if (price          !== undefined) product.price          = Number(price);
+    if (stock          !== undefined) product.stock          = Number(stock);
+    if (discount       !== undefined) product.discount       = Number(discount);
     if (warrantyMonths !== undefined) product.warrantyMonths = Number(warrantyMonths);
-    if (compatibility !== undefined) product.compatibility = Array.isArray(compatibility) ? compatibility : JSON.parse(compatibility || "[]");
+    if (compatibility  !== undefined) product.compatibility  = Array.isArray(compatibility) ? compatibility : JSON.parse(compatibility || "[]");
     if (specifications !== undefined) product.specifications = typeof specifications === "string" ? JSON.parse(specifications || "{}") : specifications;
 
-    const removedImages = normalizeBodyImages(removeImages);
+    const removedUrls = normalizeBodyImages(removeImages);
+    removedUrls.forEach((url) => deleteFile(url)); // ✅ fire and forget
+
     const keptImages = existingImages !== undefined
       ? normalizeBodyImages(existingImages)
-      : product.images.filter((imagePath) => !removedImages.includes(toPublicUrl(req, imagePath)) && !removedImages.includes(imagePath));
+      : product.images.filter((img) => !removedUrls.includes(img));
 
-    removedImages.forEach((imagePath) => {
-      if (String(imagePath).includes("/uploads/products/")) {
-        deleteProductImage(path.basename(imagePath));
-      }
-    });
+    const newImages = (req.files || []).map((f) => f.path);
 
-    if (req.files?.length || existingImages !== undefined || removedImages.length) {
-      product.images = [
-        ...keptImages,
-        ...uploadedImagePaths(req.files),
-      ];
+    if (req.files?.length || existingImages !== undefined || removedUrls.length) {
+      product.images = [...keptImages, ...newImages];
     }
 
     await product.save();
@@ -206,13 +185,9 @@ exports.updateProduct = async (req, res) => {
       await notificationService.notifyAllCustomers(
         {
           title: "Special Offer",
-          body: `${Number(discount)}% off on ${product.name}. Limited time!`,
+          body:  `${Number(discount)}% off on ${product.name}. Limited time!`,
           category: "discount",
-          data: {
-            productId: product._id,
-            discount: product.discount,
-            targetName: product.name,
-          },
+          data: { productId: product._id, discount: product.discount, targetName: product.name },
         },
         { createdBy: req.user?._id || null }
       );
@@ -224,10 +199,8 @@ exports.updateProduct = async (req, res) => {
       success: true,
     });
   } catch (error) {
-    res.status(500).json({
-      message: "Failed to update product",
-      success: false,
-    });
+    req.files?.forEach((f) => deleteFile(f.path)); // ✅ fire and forget
+    res.status(500).json({ message: "Failed to update product", success: false });
   }
 };
 
@@ -235,27 +208,18 @@ exports.deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const product = await Product.findById(id);  // check first before deleting
+    const product = await Product.findById(id);
     if (!product) {
-      return res.status(404).json({
-        message: "Product not found",
-        success: false,
-      });
+      return res.status(404).json({ message: "Product not found", success: false });
     }
 
     await Product.findByIdAndDelete(id);
-    (product.images || []).forEach((imagePath) => {
-      if (String(imagePath).includes("/uploads/products/")) {
-        deleteProductImage(path.basename(imagePath));
-      }
-    });
 
-    res.status(200).json({  // fixed: was 201
+    product.images?.forEach((url) => deleteFile(url));
+
+    res.status(200).json({
       message: "Product deleted successfully",
-      deletedProduct: {
-        id: product._id,
-        name: product.name,
-      },
+      deletedProduct: { id: product._id, name: product.name },
       success: true,
     });
   } catch (error) {
