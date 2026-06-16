@@ -2,6 +2,8 @@ const Banner               = require("../models/banner");
 const { deleteFile, buildUrl } = require("../config/multer");
 const notificationService = require("../services/notificationService");
 
+// const { sendToDevice } = require("../utils/appPushNotification");
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 const buildImageObj = (file) => ({
@@ -321,3 +323,14 @@ const resolveBannerCategory = (bannerLike) => {
   if (bannerLike.heading) return bannerLike.heading;
   return "featured products";
 };
+
+// const fun = async ()=>{
+
+//   await sendToDevice('cfUkS7WSQgqHK9BAGaoqBo:APA91bE7x6JpNdEg7shCHoZyFV9_QWVn-ur10JOSmZ86-EVezcuPb21GCLXKE4DH4Y0O_x3KCx9gTsa4Dl5IDQkP_RMns-OVr_07dT-ZUnBeHsjQeLt_0xg', {
+//     title: 'Order Placed',
+//     body:  'Your order #1234 has been placed successfully.',
+//     data:  { orderId: '1234', screen: 'OrderDetail' },
+//   });
+// }
+
+// fun();
