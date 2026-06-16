@@ -273,9 +273,15 @@ exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user._id;
     const {
-      firstName, lastName, phone, email, address,
-      shopDetails,                          // nested: { shopName, gstNumber, businessAddress }
-      shopName, gstNumber, businessAddress,  // flat alternatives sent by some clients
+      firstName,
+      lastName,
+      phone,
+      email,
+      address,
+      shopDetails, // nested: { shopName, gstNumber, businessAddress }
+      shopName,
+      gstNumber,
+      businessAddress, // flat alternatives sent by some clients
     } = req.body;
 
     if (phone) {
@@ -305,20 +311,21 @@ exports.updateProfile = async (req, res) => {
 
     const updateData = {};
     if (firstName !== undefined) updateData.firstName = firstName.trim();
-    if (lastName !== undefined)  updateData.lastName  = lastName.trim();
-    if (phone !== undefined)     updateData.phone     = phone.trim();
-    if (email !== undefined)     updateData.email     = email.toLowerCase().trim();
-    if (address !== undefined)   updateData.address   = address ? address.trim() : "";
+    if (lastName !== undefined) updateData.lastName = lastName.trim();
+    if (phone !== undefined) updateData.phone = phone.trim();
+    if (email !== undefined) updateData.email = email.toLowerCase().trim();
+    if (address !== undefined)
+      updateData.address = address ? address.trim() : "";
 
     // Accept shopDetails fields from EITHER nested object OR root-level keys
     // Root-level keys (shopName, gstNumber, businessAddress) take priority
-    const sn  = shopName        ?? shopDetails?.shopName;
-    const gst = gstNumber       ?? shopDetails?.gstNumber;
-    const ba  = businessAddress ?? shopDetails?.businessAddress;
+    const sn = shopName ?? shopDetails?.shopName;
+    const gst = gstNumber ?? shopDetails?.gstNumber;
+    const ba = businessAddress ?? shopDetails?.businessAddress;
 
-    if (sn  !== undefined) updateData['shopDetails.shopName']        = sn.trim();
-    if (gst !== undefined) updateData['shopDetails.gstNumber']       = gst.trim();
-    if (ba  !== undefined) updateData['shopDetails.businessAddress'] = ba.trim();
+    if (sn !== undefined) updateData["shopDetails.shopName"] = sn.trim();
+    if (gst !== undefined) updateData["shopDetails.gstNumber"] = gst.trim();
+    if (ba !== undefined) updateData["shopDetails.businessAddress"] = ba.trim();
 
     if (Object.keys(updateData).length === 0) {
       return res
@@ -724,5 +731,28 @@ exports.loginAdmin = async (req, res) => {
   } catch (error) {
     console.error("[Auth] loginAdmin error:", error);
     return res.status(500).json({ error: "Login failed. Please try again." });
+  }
+};
+
+exports.saveFcmToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) {
+      return res.status(400).json({ error: "FCM token is required" });
+    }
+
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.fcmToken = fcmToken;
+    await user.save();
+
+    return res.status(200).json({ message: "FCM token saved successfully" });
+  } catch (error) {
+    console.error("[Auth] saveFcmToken error:", error);
+    return res.status(500).json({ error: "Failed to save FCM token" });
   }
 };
