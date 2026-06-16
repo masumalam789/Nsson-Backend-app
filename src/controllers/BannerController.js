@@ -287,6 +287,24 @@ const deleteBannerImage = async (req, res) => {
   }
 };
 
+
+const getActiveBanner = async (req, res) => {
+  try {
+    const activeBanners = await Banner.find({ status: "active" });
+
+    res.json({
+      success: true,
+      message: "Active banners fetched successfully",
+      data: activeBanners.map(banner => serializeBanner(req, banner)),
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch banners",
+    });
+  }
+};
+
 module.exports = {
   getAllBanners,
   getBannerById,
@@ -295,6 +313,7 @@ module.exports = {
   updateBannerStatus,
   deleteBanner,
   deleteBannerImage,
+  getActiveBanner
 };
 
 const resolveBannerCategory = (bannerLike) => {
