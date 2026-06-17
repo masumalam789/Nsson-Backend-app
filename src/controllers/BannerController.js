@@ -29,7 +29,7 @@ const serializeBanner = (_req, banner) => {
 const serializeBanners = (req, banners) => banners.map((banner) => serializeBanner(req, banner));
 
 const pickFields = (body) => {
-  const allowed = ["heading", "subheading", "link", "position", "status", "startDate", "endDate"];
+  const allowed = ["heading", "subheading", "link", "position", "status", "startDate", "endDate", "product_id"];
   return allowed.reduce((acc, key) => {
     if (body[key] !== undefined) acc[key] = body[key] || (key === "startDate" || key === "endDate" ? null : body[key]);
     return acc;
