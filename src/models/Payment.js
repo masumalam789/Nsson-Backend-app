@@ -61,14 +61,6 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Indexes
-paymentSchema.index({ userId: 1, status: 1 });
-paymentSchema.index({ orderId: 1 });
-paymentSchema.index({ createdAt: 1 });
-paymentSchema.index({ status: 1, expiresAt: 1 });
-paymentSchema.index({ razorpayOrderId: 1 });
-paymentSchema.index({ razorpayPaymentId: 1 });
-paymentSchema.index({ receipt: 1 });
 
 paymentSchema.methods.isExpired = function () {
   return this.status === "PENDING" && new Date() > this.expiresAt;
