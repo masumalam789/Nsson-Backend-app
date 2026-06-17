@@ -15,9 +15,13 @@ router.post("/register", authController.register);
 router.post("/register-admin", authController.registerAdmin);
 router.post("/login", authController.unifiedLogin);
 router.post("/login-admin", authController.loginAdmin);
-router.post("/forgot-password", authController.forgotPassword);
+router.post("/forgot-password/admin", authController.adminForgotPassword);
 router.post("/reset-password/:token", authController.resetPassword);
 router.get("/verify-reset-token/:token", authController.verifyResetToken);
+
+// user forget password
+router.post("/forgot-password", authController.userForgotPassword);
+router.get("/verify-token/:token", authController.verifyUserResetToken)
 
 // ─── Admin: User Approval Routes ──────────────────────────────────────────────
 // NOTE: /users/pending must come BEFORE /:id routes to avoid Express

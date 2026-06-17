@@ -7,6 +7,11 @@ function getFrontendURL() {
   return rawURL.replace(/\/+$/, '');
 }
 
+function getBackendUrl() {
+  const url = process.env.BACKEND_URL || 'http://localhost:8080/'
+  return url
+}
+
 function getDisplayName(user) {
   return user?.firstName || user?.name?.split(' ')[0] || 'Customer';
 }
@@ -219,6 +224,31 @@ class EmailService {
     const resetURL = `${getFrontendURL()}/reset-password/${resetToken}`;
 
     try {
+      const info = await transporter.sendMail({
+        from:    `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM}>`,
+        to:      user.email,
+        subject: `Reset Your Password — ${process.env.EMAIL_FROM_NAME}`,
+        html:    forgotPasswordHTML(name, resetURL),
+      });
+
+      console.log(`✅ [EmailService] Email sent to ${user.email} | messageId: ${info.messageId}`);
+      return { success: true, messageId: info.messageId };
+
+    } catch (error) {
+      console.error(`❌ [EmailService] Failed:`, error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  static async userForgotPasswordEmail(user, resetToken) {
+    try {
+      if (!user?.email) {
+        return { success: false, error: 'Recipient email is required' };
+      }
+
+      const name = getDisplayName(user);
+      const resetURL = `${getBackendUrl()}/verify-token/${resetToken}`;
+
       const info = await transporter.sendMail({
         from:    `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM}>`,
         to:      user.email,
