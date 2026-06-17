@@ -497,42 +497,45 @@ exports.adminForgotPassword = async (req, res) => {
 
 exports.userForgotPassword = async (req, res) => {
   try {
-      const { email } = req.body;
+    const { email } = req.body;
 
-      if (!email) {
-        return res.status(400).json({ error: "Email is required" });
-      }
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
 
-      const user = await User.findOne({ email: email.toLowerCase().trim() });
-      const rawToken = crypto.randomBytes(32).toString("hex");
-      const hashedToken = hashToken(rawToken);
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = hashToken(rawToken);
 
-      user.resetPasswordToken = hashedToken;
-      user.resetPasswordExpires = Date.now() + RESET_TOKEN_EXPIRY_MS;
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + RESET_TOKEN_EXPIRY_MS;
+    await user.save();
+
+    const result = await EmailService.userForgotPasswordEmail(user, rawToken);
+
+    if (!result.success) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
       await user.save();
+      console.error(
+        "[Auth] forgotPassword — email delivery failed:",
+        result.error,
+      );
+      return res.status(500).json({
+        error: "Failed to send password reset email. Please try again.",
+      });
+    }
 
-      const result = await EmailService.userForgotPasswordEmail(user, rawToken);
-
-      if (!result.success) {
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpires = undefined;
-        await user.save();
-        console.error(
-          "[Auth] forgotPassword — email delivery failed:",
-          result.error,
-        );
-        return res.status(500).json({
-          error: "Failed to send password reset email. Please try again.",
-        });
-      }
-
-    return res.status(200).json({ success: true, message: "Reset email send successfully"});
+    return res
+      .status(200)
+      .json({ success: true, message: "Reset email send successfully" });
   } catch (error) {
     console.error("[Auth] forgotPassword error:", error);
-    return res.status(500).json({ error: "Failed to process password reset request" });
+    return res
+      .status(500)
+      .json({ error: "Failed to process password reset request" });
   }
-
-}
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -635,13 +638,21 @@ exports.verifyResetToken = async (req, res) => {
     const result = await verify_token_helper(token);
 
     if (!result.success) {
-      return res.status(400).json({ valid: false, error: "Invalid or expired reset token" });
+      return res
+        .status(400)
+        .json({ valid: false, error: "Invalid or expired reset token" });
     }
 
-    return res.status(200).json({ valid: true, message: "Token is valid", email: result.user.email });
+    return res.status(200).json({
+      valid: true,
+      message: "Token is valid",
+      email: result.user.email,
+    });
   } catch (error) {
     console.error("[Auth] verifyResetToken error:", error);
-    return res.status(500).json({ valid: false, error: "Failed to verify reset token" });
+    return res
+      .status(500)
+      .json({ valid: false, error: "Failed to verify reset token" });
   }
 };
 
@@ -656,17 +667,20 @@ exports.verifyUserResetToken = async (req, res) => {
     const result = await verify_token_helper(token);
 
     if (!result.success) {
-      return res.status(400).json({ valid: false, error: "Invalid or expired reset token" });
+      return res
+        .status(400)
+        .json({ valid: false, error: "Invalid or expired reset token" });
     }
 
-    return res.redirect(`nssоnmotocrafter://reset-password?token=${token}`);
-
+    // ✅ Fix: all Latin characters in scheme name
+    return res.redirect(`nssonmotocrafter://reset-password?token=${token}`);
   } catch (error) {
     console.error("[Auth] verifyResetToken error:", error);
-    return res.status(500).json({ valid: false, error: "Failed to verify reset token" });
+    return res
+      .status(500)
+      .json({ valid: false, error: "Failed to verify reset token" });
   }
-}  // ✅ single closing brace
-// ─────────────────────────────────────────────────────────────────────────────
+};
 
 /**
  * POST /auth/register-admin
@@ -825,5 +839,3 @@ exports.saveFcmToken = async (req, res) => {
     return res.status(500).json({ error: "Failed to save FCM token" });
   }
 };
-
-

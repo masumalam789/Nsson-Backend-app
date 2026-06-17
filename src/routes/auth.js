@@ -21,7 +21,7 @@ router.get("/verify-reset-token/:token", authController.verifyResetToken);
 
 // user forget password
 router.post("/forgot-password", authController.userForgotPassword);
-router.get("/verify-token/:token", authController.verifyUserResetToken)
+router.get("/verify-token/:token", authController.verifyUserResetToken);
 
 // ─── Admin: User Approval Routes ──────────────────────────────────────────────
 // NOTE: /users/pending must come BEFORE /:id routes to avoid Express
@@ -55,4 +55,3 @@ router.post("/change-password", authMiddleware, authController.changePassword);
 router.post("/logout", authMiddleware, authController.logout);
 
 module.exports = router;
-

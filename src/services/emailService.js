@@ -1,40 +1,46 @@
-'use strict';
+"use strict";
 
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 
 function getFrontendURL() {
-  const rawURL = process.env.FRONTEND_URL || 'https://admin-garage3-ecommerencr.vercel.app';
-  return rawURL.replace(/\/+$/, '');
+  const rawURL =
+    process.env.FRONTEND_URL || "https://admin-garage3-ecommerencr.vercel.app";
+  return rawURL.replace(/\/+$/, "");
 }
 
 function getBackendUrl() {
-  const url = process.env.BACKEND_URL || 'http://localhost:8080/'
-  return url
+  const url = process.env.BACKEND_URL || "http://localhost:8080/";
+  return url;
 }
 
 function getDisplayName(user) {
-  return user?.firstName || user?.name?.split(' ')[0] || 'Customer';
+  return user?.firstName || user?.name?.split(" ")[0] || "Customer";
 }
 
 function getShopName(user) {
-  return user?.shopDetails?.shopName || 'N/A';
+  return user?.shopDetails?.shopName || "N/A";
 }
 
 function getSupportPhone() {
-  return process.env.SUPPORT_PHONE || process.env.EMAIL_SUPPORT_PHONE || '';
+  return process.env.SUPPORT_PHONE || process.env.EMAIL_SUPPORT_PHONE || "";
 }
 
 function getSupportEmail() {
-  return process.env.SUPPORT_EMAIL || process.env.EMAIL_SUPPORT_EMAIL || process.env.EMAIL_FROM || '';
+  return (
+    process.env.SUPPORT_EMAIL ||
+    process.env.EMAIL_SUPPORT_EMAIL ||
+    process.env.EMAIL_FROM ||
+    ""
+  );
 }
 
 function escapeHTML(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function currentYear() {
@@ -42,7 +48,7 @@ function currentYear() {
 }
 
 function emailShell(title, bodyHTML) {
-  const storeName = process.env.EMAIL_FROM_NAME || 'Team NSSON';
+  const storeName = process.env.EMAIL_FROM_NAME || "Team NSSON";
   return `
 <!DOCTYPE html>
 <html>
@@ -67,11 +73,11 @@ function emailShell(title, bodyHTML) {
 function registrationReceivedHTML(user) {
   const name = escapeHTML(getDisplayName(user));
   const shopName = escapeHTML(getShopName(user));
-  const email = escapeHTML(user.email || 'N/A');
-  const phone = escapeHTML(user.phone || 'N/A');
+  const email = escapeHTML(user.email || "N/A");
+  const phone = escapeHTML(user.phone || "N/A");
 
   return emailShell(
-    'Registration Received',
+    "Registration Received",
     `
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 12px;">Dear <strong>${name}</strong>,</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 18px;">Your retailer registration request has been received.</p>
@@ -83,7 +89,7 @@ function registrationReceivedHTML(user) {
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 12px;">Our team will review your details and activate your account shortly.</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 28px;">You will receive a confirmation email once approved.</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0;">Regards,<br/>Team NSSON</p>
-    `
+    `,
   );
 }
 
@@ -91,17 +97,19 @@ function accountApprovedHTML(user) {
   const name = escapeHTML(getDisplayName(user));
   const supportPhone = getSupportPhone();
   const supportEmail = getSupportEmail();
-  const supportLine = escapeHTML([supportPhone, supportEmail].filter(Boolean).join(' | '));
+  const supportLine = escapeHTML(
+    [supportPhone, supportEmail].filter(Boolean).join(" | "),
+  );
 
   return emailShell(
-    'Your NSSON Account is Active!',
+    "Your NSSON Account is Active!",
     `
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 12px;">Dear <strong>${name}</strong>,</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 18px;">Your NSSON Autoparts Retailer Account is Active now.</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 18px;">You can now browse products, check stock, and place orders 24×7.</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 28px;">Thank you for choosing NSSON Autoparts. Happy Ordering!</p>
-      <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0;">Regards,<br/>Team NSSON${supportLine ? `<br/>${supportLine}` : ''}</p>
-    `
+      <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0;">Regards,<br/>Team NSSON${supportLine ? `<br/>${supportLine}` : ""}</p>
+    `,
   );
 }
 
@@ -109,13 +117,13 @@ function accountRejectedHTML(user) {
   const name = escapeHTML(getDisplayName(user));
 
   return emailShell(
-    'Registration Update',
+    "Registration Update",
     `
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 12px;">Dear <strong>${name}</strong>,</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 18px;">We were unable to approve your retailer account at this time.</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0 0 28px;">Please contact our support team for more information.</p>
       <p style="color:#4a5568;font-size:15px;line-height:1.7;margin:0;">Regards,<br/>Team NSSON</p>
-    `
+    `,
   );
 }
 
@@ -160,7 +168,7 @@ function forgotPasswordHTML(name, resetURL) {
 }
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
+  host: "smtp.gmail.com",
   port: 587,
   secure: false,
   auth: {
@@ -171,7 +179,7 @@ const transporter = nodemailer.createTransport({
 class EmailService {
   static async sendMail({ user, subject, html }) {
     if (!user?.email) {
-      return { success: false, error: 'Recipient email is required' };
+      return { success: false, error: "Recipient email is required" };
     }
 
     try {
@@ -182,9 +190,10 @@ class EmailService {
         html,
       });
 
-      console.log(`✅ [EmailService] Email sent to ${user.email} | messageId: ${info.messageId}`);
+      console.log(
+        `✅ [EmailService] Email sent to ${user.email} | messageId: ${info.messageId}`,
+      );
       return { success: true, messageId: info.messageId };
-
     } catch (error) {
       console.error(`❌ [EmailService] Failed:`, error.message);
       return { success: false, error: error.message };
@@ -194,7 +203,7 @@ class EmailService {
   static async sendRegistrationReceivedEmail(user) {
     return EmailService.sendMail({
       user,
-      subject: '[Team NSSON] Registration Received — Under Review',
+      subject: "[Team NSSON] Registration Received — Under Review",
       html: registrationReceivedHTML(user),
     });
   }
@@ -202,7 +211,7 @@ class EmailService {
   static async sendAccountApprovedEmail(user) {
     return EmailService.sendMail({
       user,
-      subject: 'Your NSSON Account is Active!',
+      subject: "Your NSSON Account is Active!",
       html: accountApprovedHTML(user),
     });
   }
@@ -210,14 +219,14 @@ class EmailService {
   static async sendAccountRejectedEmail(user) {
     return EmailService.sendMail({
       user,
-      subject: 'Team NSSON — Registration Update',
+      subject: "Team NSSON — Registration Update",
       html: accountRejectedHTML(user),
     });
   }
 
   static async sendForgotPasswordEmail(user, resetToken) {
     if (!user?.email) {
-      return { success: false, error: 'Recipient email is required' };
+      return { success: false, error: "Recipient email is required" };
     }
 
     const name = getDisplayName(user);
@@ -225,15 +234,16 @@ class EmailService {
 
     try {
       const info = await transporter.sendMail({
-        from:    `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM}>`,
-        to:      user.email,
+        from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM}>`,
+        to: user.email,
         subject: `Reset Your Password — ${process.env.EMAIL_FROM_NAME}`,
-        html:    forgotPasswordHTML(name, resetURL),
+        html: forgotPasswordHTML(name, resetURL),
       });
 
-      console.log(`✅ [EmailService] Email sent to ${user.email} | messageId: ${info.messageId}`);
+      console.log(
+        `✅ [EmailService] Email sent to ${user.email} | messageId: ${info.messageId}`,
+      );
       return { success: true, messageId: info.messageId };
-
     } catch (error) {
       console.error(`❌ [EmailService] Failed:`, error.message);
       return { success: false, error: error.message };
@@ -243,22 +253,23 @@ class EmailService {
   static async userForgotPasswordEmail(user, resetToken) {
     try {
       if (!user?.email) {
-        return { success: false, error: 'Recipient email is required' };
+        return { success: false, error: "Recipient email is required" };
       }
 
       const name = getDisplayName(user);
-      const resetURL = `${getBackendUrl()}/verify-token/${resetToken}`;
+      const resetURL = `${getBackendUrl()}/api/auth/verify-token/${resetToken}`;
 
       const info = await transporter.sendMail({
-        from:    `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM}>`,
-        to:      user.email,
+        from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM}>`,
+        to: user.email,
         subject: `Reset Your Password — ${process.env.EMAIL_FROM_NAME}`,
-        html:    forgotPasswordHTML(name, resetURL),
+        html: forgotPasswordHTML(name, resetURL),
       });
 
-      console.log(`✅ [EmailService] Email sent to ${user.email} | messageId: ${info.messageId}`);
+      console.log(
+        `✅ [EmailService] Email sent to ${user.email} | messageId: ${info.messageId}`,
+      );
       return { success: true, messageId: info.messageId };
-
     } catch (error) {
       console.error(`❌ [EmailService] Failed:`, error.message);
       return { success: false, error: error.message };
