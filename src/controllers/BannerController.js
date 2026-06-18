@@ -86,6 +86,17 @@ const getAllBanners = async (req, res) => {
   }
 };
 
+const getUserBanner = async (req, res) => {
+  try {
+    const banners = await Banner.find({status: "active"})
+
+    res.status(200).json({success: true, banners})
+  } catch (error) {
+    console.error("getAllBanners error:", err?.message);
+    res.status(500).json({ success: false, message: "Failed to fetch banners" });
+  }
+}
+
 // ── GET /api/banners/:id ──────────────────────────────────────────────────────
 const getBannerById = async (req, res) => {
   try {
@@ -315,7 +326,8 @@ module.exports = {
   updateBannerStatus,
   deleteBanner,
   deleteBannerImage,
-  getActiveBanner
+  getActiveBanner,
+  getUserBanner
 };
 
 const resolveBannerCategory = (bannerLike) => {

@@ -10,7 +10,8 @@ const {
   updateBannerStatus,
   deleteBanner,
   deleteBannerImage,
-  getActiveBanner
+  getActiveBanner,
+  getUserBanner
 } = require("../controllers/BannerController");
 
 const { upload } = require("../config/multer");
@@ -27,7 +28,8 @@ const { upload } = require("../config/multer");
 //  DELETE /api/banners/:id/image      ← remove image only, keep record
 // ─────────────────────────────────────────────────────────────────────────────
 
-router.get("/",    getAllBanners);
+router.get("/admin", getAllBanners);
+router.get("/", authMiddleware, getUserBanner);
 router.get("/active", authMiddleware, getActiveBanner)
 router.get("/:id", getBannerById);
 
