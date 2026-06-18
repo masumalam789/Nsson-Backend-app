@@ -156,11 +156,30 @@ exports.getMyOrders = async (req, res) => {
   }
 };
 
-// ─── GET /api/orders/:id ──────────────────────────────────────────────────────
+
+const formatOrderDates = (order) => {
+
+  const obj = order.toObject();
+
+  const toIST = (date) => {
+    if (!date) return null;
+    return new Date(date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  };
+
+  const dateFields = ['createdAt', 'updatedAt', 'deliveredAt', 'orderDate'];
+
+  dateFields.forEach(field => {
+    if (obj[field]) obj[field] = toIST(obj[field]);
+  });
+
+  return obj;
+};
+
 exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate('userId', 'firstName lastName email')
+      .populate('shippingAddress', 'phone street city state country zipCode')
       .select('-__v');
 
     if (!order) {
@@ -174,7 +193,11 @@ exports.getOrderById = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    return res.status(200).json({ success: true, data: order });
+    return res.status(200).json({ 
+      success: true,
+      data: formatOrderDates(order)  // ✅ all dates converted to IST
+    });
+
   } catch (err) {
     console.error('[OrderController] getOrderById:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
