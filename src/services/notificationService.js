@@ -3,6 +3,7 @@
 const axios = require('axios');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const { sendToMultipleDevices } = require('../utils/appPushNotification');
 
 const PUSH_URL = 'https://fcm.googleapis.com/fcm/send';
 
@@ -106,3 +107,31 @@ exports.notifyAllCustomers = async (payload, options = {}) => {
   const userIds = users.map((user) => user._id);
   return createRecordsForUsers(userIds, payload, options);
 };
+
+const notifyAllUserDevices = async (obj) => {
+  try {
+    const users = await User.find(
+      {
+        status: "approved",
+        fcmToken: { $exists: true, $ne: null, $nin: ["", " "] }, 
+      },
+      { fcmToken: 1, _id: 0 },
+    );
+
+    const fcmTokens = users.map((user) => user.fcmToken);
+
+    if (!fcmTokens.length) {
+      console.log("No valid FCM tokens found");
+      return;
+    }
+
+    await sendToMultipleDevices(fcmTokens, obj);
+  } catch (err) {
+    console.log(
+      "-------ERROR WHILE PUSHING NOTITIFCATION-------",
+      err?.message,
+    );
+  }
+};
+
+exports.notifyAllUserDevices = notifyAllUserDevices;

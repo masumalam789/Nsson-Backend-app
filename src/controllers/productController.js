@@ -75,14 +75,12 @@ exports.createProduct = async (req, res) => {
       images:         urls,
     });
 
-    await notificationService.notifyAllCustomers(
+    await notificationService.notifyAllUserDevices(
       {
         title: "New Products Added",
         body:  `${product.brand} parts now available. Check the catalog.`,
-        category: "info",
         data: { productId: product._id, name: product.name, brand: product.brand },
-      },
-      { createdBy: req.user?._id || null }
+      }
     );
 
     res.status(201).json({
