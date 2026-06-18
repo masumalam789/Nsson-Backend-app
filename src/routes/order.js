@@ -23,7 +23,7 @@ router.put('/admin/:id/status',   authMiddleware, adminMiddleware, validateUpdat
 router.patch('/:id/status',       authMiddleware, adminMiddleware, validateUpdateOrderStatus, updateOrderStatus);
 
 // ─── User routes ──────────────────────────────────────────────────────────────
-router.post('/',           authMiddleware, validateCreateOrder,  createOrder);
+router.post('/',           authMiddleware,  createOrder);
 router.get ('/',           authMiddleware,                       getMyOrders);
 router.get ('/:id',        authMiddleware, validateOrderIdParam, getOrderById);
 router.put ('/:id/cancel', authMiddleware, validateOrderIdParam, cancelOrder);

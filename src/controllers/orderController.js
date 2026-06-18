@@ -40,26 +40,19 @@ const serializeAdminOrder = (order) => {
 // ─── POST /api/orders ─────────────────────────────────────────────────────────
 exports.createOrder = async (req, res) => {
   try {
-    const { shippingAddress, paymentMethod } = req.body;
+    const { shippingAddressId, paymentMethod } = req.body;
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
-    // shippingAddress can be an existing Address _id (string)
-    // OR a new address object — if object, save it first
-    let shippingAddressId = shippingAddress;
-    if (typeof shippingAddress === 'object' && shippingAddress !== null) {
-      const newAddress = await Address.create({
-        userId:      req.user._id,
-        fullName:    shippingAddress.fullName,
-        phone:       shippingAddress.phone,
-        street:      shippingAddress.addressLine1 || shippingAddress.street,
-        city:        shippingAddress.city,
-        state:       shippingAddress.state,
-        zipCode:     shippingAddress.postalCode || shippingAddress.zipCode,
-        country:     shippingAddress.country === 'IN' ? 'India' : shippingAddress.country,
-        addressType: shippingAddress.addressType || 'home',
-        isDefault:   false,
-      });
-      shippingAddressId = newAddress._id;
+    if (!shippingAddressId) {
+      return res.status(400).json({ success: false, message: "Shipping address ID is required" });
+    }
+
+    const isAddressValid = await Address.findOne({ 
+      _id: shippingAddressId
+    });
+
+    if (!isAddressValid) {
+      return res.status(404).json({ success: false, message: "Address not found or does not belong to you" });
     }
 
     const cart = await Cart.findOne({ user: req.user._id })

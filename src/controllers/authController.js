@@ -56,7 +56,7 @@ function validatePhone(phone) {
  * Customers must be approved before they can log in.
  */
 exports.unifiedLogin = async (req, res) => {
-  console.log("LOGIN BODY:", req.body);
+
   try {
     const { identifier, email, password } = req.body;
 
