@@ -289,16 +289,16 @@ exports.approveUser = async (req, res) => {
       console.error('[User] account approved email failed:', emailResult.error);
     }
 
-    await notificationService.notifyUser(
-      user._id,
-      {
-        title: 'Account Approved',
-        body: 'Your account has been approved. You can now place orders!',
-        category: 'approved',
-        data: { userId: user._id, status: user.status },
-      },
-      { createdBy: req.user?._id || null }
-    );
+    // await notificationService.notifyUser(
+    //   user._id,
+    //   {
+    //     title: 'Account Approved',
+    //     body: 'Your account has been approved. You can now place orders!',
+    //     category: 'approved',
+    //     data: { userId: user._id, status: user.status },
+    //   },
+    //   { createdBy: req.user?._id || null }
+    // );
 
     return res.status(200).json({
       message: `${user.firstName} ${user.lastName}'s account has been approved. They can now log in.`,
