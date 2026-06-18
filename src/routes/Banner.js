@@ -1,6 +1,6 @@
 const express = require("express");
-const router  = express.Router();
-const { authMiddleware }  = require('../middleware/auth');
+const router = express.Router();
+const { authMiddleware } = require("../middleware/auth");
 
 const {
   getAllBanners,
@@ -11,7 +11,7 @@ const {
   deleteBanner,
   deleteBannerImage,
   getActiveBanner,
-  getUserBanner
+  getUserBanner,
 } = require("../controllers/BannerController");
 
 const { upload } = require("../config/multer");
@@ -29,16 +29,16 @@ const { upload } = require("../config/multer");
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get("/admin", getAllBanners);
-router.get("/", authMiddleware, getUserBanner);
-router.get("/active", authMiddleware, getActiveBanner)
+router.get("/", getUserBanner);
+router.get("/active", authMiddleware, getActiveBanner);
 router.get("/:id", getBannerById);
 
-router.post("/",   upload.single("image"), createBanner);
+router.post("/", upload.single("image"), createBanner);
 router.put("/:id", upload.single("image"), updateBanner);
 
 router.patch("/:id/status", updateBannerStatus);
 
-router.delete("/:id",       deleteBanner);
+router.delete("/:id", deleteBanner);
 router.delete("/:id/image", deleteBannerImage);
 
 // user routes
