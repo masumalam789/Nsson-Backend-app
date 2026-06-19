@@ -1,15 +1,14 @@
-'use strict';
+"use strict";
 
-const axios = require('axios');
-const Notification = require('../models/Notification');
-const User = require('../models/User');
-const { sendToMultipleDevices } = require('../utils/appPushNotification');
+const axios = require("axios");
+const Notification = require("../models/Notification");
+const User = require("../models/User");
 
-const PUSH_URL = 'https://fcm.googleapis.com/fcm/send';
+const PUSH_URL = "https://fcm.googleapis.com/fcm/send";
 
 const serializeData = (data = {}) =>
   Object.entries(data).reduce((acc, [key, value]) => {
-    acc[key] = value == null ? '' : String(value);
+    acc[key] = value == null ? "" : String(value);
     return acc;
   }, {});
 
@@ -17,12 +16,22 @@ async function sendPushToTokens(tokens, payload) {
   const uniqueTokens = [...new Set((tokens || []).filter(Boolean))];
 
   if (uniqueTokens.length === 0) {
-    return { attempted: false, delivered: false, error: 'No device tokens registered' };
+    return {
+      attempted: false,
+      delivered: false,
+      error: "No device tokens registered",
+    };
   }
 
   if (!process.env.FCM_SERVER_KEY) {
-    console.log('[NotificationService] Push skipped: FCM_SERVER_KEY is not set');
-    return { attempted: false, delivered: false, error: 'FCM_SERVER_KEY is not configured' };
+    console.log(
+      "[NotificationService] Push skipped: FCM_SERVER_KEY is not set",
+    );
+    return {
+      attempted: false,
+      delivered: false,
+      error: "FCM_SERVER_KEY is not configured",
+    };
   }
 
   try {
@@ -35,24 +44,27 @@ async function sendPushToTokens(tokens, payload) {
           body: payload.body,
         },
         data: serializeData(payload.data),
-        priority: 'high',
+        priority: "high",
       },
       {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `key=${process.env.FCM_SERVER_KEY}`,
         },
         timeout: 10000,
-      }
+      },
     );
 
     return { attempted: true, delivered: true, error: null };
   } catch (error) {
-    console.error('[NotificationService] Push error:', error.response?.data || error.message);
+    console.error(
+      "[NotificationService] Push error:",
+      error.response?.data || error.message,
+    );
     return {
       attempted: true,
       delivered: false,
-      error: error.response?.data?.error || error.message || 'Push send failed',
+      error: error.response?.data?.error || error.message || "Push send failed",
     };
   }
 }
@@ -60,9 +72,11 @@ async function sendPushToTokens(tokens, payload) {
 async function createRecordsForUsers(userIds, payload, options = {}) {
   const users = await User.find({
     _id: { $in: userIds },
-  }).select('_id deviceTokens status role');
+  }).select("_id deviceTokens status role");
 
-  const activeUsers = users.filter((user) => user.role === 'customer' && user.status === 'approved');
+  const activeUsers = users.filter(
+    (user) => user.role === "customer" && user.status === "approved",
+  );
   if (activeUsers.length === 0) {
     return [];
   }
@@ -75,7 +89,7 @@ async function createRecordsForUsers(userIds, payload, options = {}) {
       category: payload.category,
       data: payload.data || {},
       createdBy: options.createdBy || null,
-    }))
+    })),
   );
 
   await Promise.all(
@@ -87,7 +101,7 @@ async function createRecordsForUsers(userIds, payload, options = {}) {
       notification.pushDelivered = pushResult.delivered;
       notification.pushError = pushResult.error;
       await notification.save();
-    })
+    }),
   );
 
   return notifications;
@@ -103,35 +117,10 @@ exports.notifyUsers = async (userIds, payload, options = {}) => {
 };
 
 exports.notifyAllCustomers = async (payload, options = {}) => {
-  const users = await User.find({ role: 'customer', status: 'approved' }).select('_id');
+  const users = await User.find({
+    role: "customer",
+    status: "approved",
+  }).select("_id");
   const userIds = users.map((user) => user._id);
   return createRecordsForUsers(userIds, payload, options);
 };
-
-const notifyAllUserDevices = async (obj) => {
-  try {
-    const users = await User.find(
-      {
-        status: "approved",
-        fcmToken: { $exists: true, $ne: null, $nin: ["", " "] }, 
-      },
-      { fcmToken: 1, _id: 0 },
-    );
-
-    const fcmTokens = users.map((user) => user.fcmToken);
-
-    if (!fcmTokens.length) {
-      console.log("No valid FCM tokens found");
-      return;
-    }
-
-    await sendToMultipleDevices(fcmTokens, obj);
-  } catch (err) {
-    console.log(
-      "-------ERROR WHILE PUSHING NOTITIFCATION-------",
-      err?.message,
-    );
-  }
-};
-
-exports.notifyAllUserDevices = notifyAllUserDevices;

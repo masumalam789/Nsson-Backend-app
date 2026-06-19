@@ -1,132 +1,144 @@
-'use strict';
+"use strict";
 
-const app = require('../config/firebase');
-const { getMessaging } = require('firebase-admin/messaging');
+const app = require("../config/firebase");
+const { getMessaging } = require("firebase-admin/messaging");
 
 const messaging = getMessaging(app);
 
-// ─── Send to single device ────────────────────────────────────────────────────
-const sendToDevice = async (fcmToken, { title, body, data = {} }) => {
-  if (!fcmToken) return null;
-
+/**
+ * Send notification to a single device
+ */
+const sendToDevice = async (token, { title, body, data = {} }) => {
   try {
-    const result = await messaging.send({
-      token: fcmToken,
-      notification: { title, body },
+    if (!token) return null;
+
+    const response = await messaging.send({
+      token,
+      notification: {
+        title,
+        body,
+      },
       data: Object.fromEntries(
-        Object.entries(data).map(([k, v]) => [k, String(v)])
+        Object.entries(data).map(([k, v]) => [k, String(v)]),
       ),
       android: {
-        priority: 'high',
+        priority: "high",
         notification: {
-          sound: 'default',
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          sound: "default",
         },
       },
       apns: {
         payload: {
           aps: {
-            sound: 'default',
+            sound: "default",
             badge: 1,
           },
         },
       },
     });
 
-    console.log(
-      `✅ Notification sent to ${fcmToken.slice(0, 10)}...`,
-      result
-    );
+    console.log("✅ Notification sent:", response);
 
-    return result;
-  } catch (err) {
-    console.error('❌ Failed to send notification:', err.message);
+    return response;
+  } catch (error) {
+    console.error("❌ FCM Error:", error.message);
     return null;
   }
 };
 
-// ─── Send to multiple devices ─────────────────────────────────────────────────
-const sendToMultipleDevices = async (
-  fcmTokens,
-  { title, body, data = {} }
-) => {
-  if (!fcmTokens?.length) return null;
+/**
+ * Send notification to multiple tokens
+ */
+const sendToMultipleDevices = async (tokens, { title, body, data = {} }) => {
+  try {
+    if (!tokens?.length) return null;
 
-  const chunks = [];
+    const chunks = [];
 
-  for (let i = 0; i < fcmTokens.length; i += 500) {
-    chunks.push(fcmTokens.slice(i, i + 500));
-  }
+    for (let i = 0; i < tokens.length; i += 500) {
+      chunks.push(tokens.slice(i, i + 500));
+    }
 
-  const results = await Promise.all(
-    chunks.map((chunk) =>
-      messaging.sendEachForMulticast({
+    const responses = [];
+
+    for (const chunk of chunks) {
+      const response = await messaging.sendEachForMulticast({
         tokens: chunk,
-        notification: { title, body },
+        notification: {
+          title,
+          body,
+        },
         data: Object.fromEntries(
-          Object.entries(data).map(([k, v]) => [k, String(v)])
+          Object.entries(data).map(([k, v]) => [k, String(v)]),
         ),
         android: {
-          priority: 'high',
+          priority: "high",
           notification: {
-            sound: 'default',
+            sound: "default",
           },
         },
         apns: {
           payload: {
             aps: {
-              sound: 'default',
+              sound: "default",
               badge: 1,
             },
           },
         },
-      })
-    )
-  );
+      });
 
-  results.forEach((result, chunkIndex) => {
-    result.responses.forEach((response, index) => {
-      if (!response.success) {
-        console.error(
-          `❌ Token ${chunks[chunkIndex][index].slice(0, 10)}... failed:`,
-          response.error?.message
-        );
-      }
-    });
-  });
+      responses.push(response);
+    }
 
-  const totalSuccess = results.reduce(
-    (sum, result) => sum + result.successCount,
-    0
-  );
+    const success = responses.reduce((sum, r) => sum + r.successCount, 0);
 
-  const totalFailure = results.reduce(
-    (sum, result) => sum + result.failureCount,
-    0
-  );
+    const failed = responses.reduce((sum, r) => sum + r.failureCount, 0);
 
-  console.log(`✅ Sent: ${totalSuccess}, ❌ Failed: ${totalFailure}`);
+    console.log(`✅ Notifications Sent: ${success}, Failed: ${failed}`);
 
-  return results;
-};
-
-// ─── Send to a user ───────────────────────────────────────────────────────────
-const sendToUser = async (user, notification) => {
-  const tokens = [
-    ...(user.deviceTokens || []),
-    ...(user.fcmToken ? [user.fcmToken] : []),
-  ].filter(Boolean);
-
-  if (!tokens.length) {
-    console.log(`No FCM tokens for user ${user._id}`);
+    return responses;
+  } catch (error) {
+    console.error("❌ Broadcast Error:", error.message);
     return null;
   }
+};
 
-  return sendToMultipleDevices(tokens, notification);
+const sendToTopic = async (topic, { title, body, data = {} }) => {
+  try {
+    const response = await messaging.send({
+      topic,
+      notification: {
+        title,
+        body,
+      },
+      data: Object.fromEntries(
+        Object.entries(data).map(([k, v]) => [k, String(v)]),
+      ),
+      android: {
+        priority: "high",
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+    });
+
+    console.log(`✅ Topic notification sent to ${topic}`, response);
+
+    return response;
+  } catch (error) {
+    console.error("❌ Topic notification failed:", error.message);
+
+    return null;
+  }
 };
 
 module.exports = {
   sendToDevice,
   sendToMultipleDevices,
-  sendToUser,
+  sendToTopic,
 };
+

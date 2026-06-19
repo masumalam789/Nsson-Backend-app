@@ -2,7 +2,8 @@ const Product = require("../models/Product");
 const notificationService = require("../services/notificationService");
 const path = require("path");
 const { deleteFile: deleteProductImage } = require("../config/productUpload");
-const { deleteFile } = require("../config/multer")
+const { deleteFile } = require("../config/multer");
+const { sendToTopic } = require("../utils/appPushNotification");
 
 // const { v4: uuid } = require("uuid");
 const fileUpload = require("../config/multer");
@@ -18,13 +19,20 @@ const getPublicBaseUrl = (req) => {
 const toPublicUrl = (req, imagePath) => {
   if (!imagePath) return "";
   if (/^https?:\/\//i.test(imagePath)) return imagePath;
-  const normalized = String(imagePath).startsWith("/") ? imagePath : `/${imagePath}`;
+  const normalized = String(imagePath).startsWith("/")
+    ? imagePath
+    : `/${imagePath}`;
   return `${getPublicBaseUrl(req)}${normalized}`;
 };
 
 const serializeProduct = (req, product) => {
-  const obj = typeof product.toObject === "function" ? product.toObject() : { ...product };
-  obj.images = (obj.images || []).filter(Boolean).map((imagePath) => toPublicUrl(req, imagePath));
+  const obj =
+    typeof product.toObject === "function"
+      ? product.toObject()
+      : { ...product };
+  obj.images = (obj.images || [])
+    .filter(Boolean)
+    .map((imagePath) => toPublicUrl(req, imagePath));
   obj.imageUrl = obj.images[0] || "";
   return obj;
 };
@@ -37,7 +45,10 @@ const normalizeBodyImages = (images) => {
       const parsed = JSON.parse(images);
       if (Array.isArray(parsed)) return parsed.filter(Boolean);
     } catch (_err) {
-      return images.split(",").map((item) => item.trim()).filter(Boolean);
+      return images
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
   }
   return [];
@@ -49,9 +60,17 @@ const uploadedImagePaths = (files = []) =>
 exports.createProduct = async (req, res) => {
   try {
     const {
-      name, description, category, brand, partNumber,
-      price, discount, stock, warrantyMonths,
-      compatibility, specifications,
+      name,
+      description,
+      category,
+      brand,
+      partNumber,
+      price,
+      discount,
+      stock,
+      warrantyMonths,
+      compatibility,
+      specifications,
     } = req.body;
 
     if (!name || !category || !brand || !partNumber || price === undefined) {
@@ -65,23 +84,28 @@ exports.createProduct = async (req, res) => {
     const urls = (req.files || []).map((file) => file.path);
 
     const product = await Product.create({
-      name, description, category, brand, partNumber,
+      name,
+      description,
+      category,
+      brand,
+      partNumber,
       price,
-      discount:       discount || 0,
-      stock:          stock || 0,
+      discount: discount || 0,
+      stock: stock || 0,
       warrantyMonths: warrantyMonths || 0,
-      compatibility:  compatibility || [],
+      compatibility: compatibility || [],
       specifications: specifications || {},
-      images:         urls,
+      images: urls,
     });
 
-    await notificationService.notifyAllUserDevices(
-      {
-        title: "New Products Added",
-        body:  `${product.brand} parts now available. Check the catalog.`,
-        data: { productId: product._id, name: product.name, brand: product.brand },
-      }
-    );
+    await sendToTopic("all_users", {
+      title: "New Product Added",
+      body: product.name,
+      data: {
+        type: "product",
+        productId: product._id.toString(),
+      },
+    });
 
     res.status(201).json({
       success: true,
@@ -139,41 +163,66 @@ exports.getProductById = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const {
-      name, description, category, subcategory, brand, partNumber,
-      price, discount, stock, warrantyMonths,
-      compatibility, specifications,
-      existingImages, removeImages,
+      name,
+      description,
+      category,
+      subcategory,
+      brand,
+      partNumber,
+      price,
+      discount,
+      stock,
+      warrantyMonths,
+      compatibility,
+      specifications,
+      existingImages,
+      removeImages,
     } = req.body;
 
     const product = await Product.findById(req.params.id);
     if (!product) {
       req.files?.forEach((f) => deleteFile(f.path)); // ✅ fire and forget
-      return res.status(404).json({ message: "Product not found", success: false });
+      return res
+        .status(404)
+        .json({ message: "Product not found", success: false });
     }
 
-    if (name           !== undefined) product.name           = name;
-    if (description    !== undefined) product.description    = description;
-    if (category       !== undefined) product.category       = category;
-    if (subcategory    !== undefined) product.subcategory    = subcategory;
-    if (brand          !== undefined) product.brand          = brand;
-    if (partNumber     !== undefined) product.partNumber     = partNumber;
-    if (price          !== undefined) product.price          = Number(price);
-    if (stock          !== undefined) product.stock          = Number(stock);
-    if (discount       !== undefined) product.discount       = Number(discount);
-    if (warrantyMonths !== undefined) product.warrantyMonths = Number(warrantyMonths);
-    if (compatibility  !== undefined) product.compatibility  = Array.isArray(compatibility) ? compatibility : JSON.parse(compatibility || "[]");
-    if (specifications !== undefined) product.specifications = typeof specifications === "string" ? JSON.parse(specifications || "{}") : specifications;
+    if (name !== undefined) product.name = name;
+    if (description !== undefined) product.description = description;
+    if (category !== undefined) product.category = category;
+    if (subcategory !== undefined) product.subcategory = subcategory;
+    if (brand !== undefined) product.brand = brand;
+    if (partNumber !== undefined) product.partNumber = partNumber;
+    if (price !== undefined) product.price = Number(price);
+    if (stock !== undefined) product.stock = Number(stock);
+    if (discount !== undefined) product.discount = Number(discount);
+    if (warrantyMonths !== undefined)
+      product.warrantyMonths = Number(warrantyMonths);
+    if (compatibility !== undefined)
+      product.compatibility = Array.isArray(compatibility)
+        ? compatibility
+        : JSON.parse(compatibility || "[]");
+    if (specifications !== undefined)
+      product.specifications =
+        typeof specifications === "string"
+          ? JSON.parse(specifications || "{}")
+          : specifications;
 
     const removedUrls = normalizeBodyImages(removeImages);
     removedUrls.forEach((url) => deleteFile(url)); // ✅ fire and forget
 
-    const keptImages = existingImages !== undefined
-      ? normalizeBodyImages(existingImages)
-      : product.images.filter((img) => !removedUrls.includes(img));
+    const keptImages =
+      existingImages !== undefined
+        ? normalizeBodyImages(existingImages)
+        : product.images.filter((img) => !removedUrls.includes(img));
 
     const newImages = (req.files || []).map((f) => f.path);
 
-    if (req.files?.length || existingImages !== undefined || removedUrls.length) {
+    if (
+      req.files?.length ||
+      existingImages !== undefined ||
+      removedUrls.length
+    ) {
       product.images = [...keptImages, ...newImages];
     }
 
@@ -183,11 +232,15 @@ exports.updateProduct = async (req, res) => {
       await notificationService.notifyAllCustomers(
         {
           title: "Special Offer",
-          body:  `${Number(discount)}% off on ${product.name}. Limited time!`,
+          body: `${Number(discount)}% off on ${product.name}. Limited time!`,
           category: "discount",
-          data: { productId: product._id, discount: product.discount, targetName: product.name },
+          data: {
+            productId: product._id,
+            discount: product.discount,
+            targetName: product.name,
+          },
         },
-        { createdBy: req.user?._id || null }
+        { createdBy: req.user?._id || null },
       );
     }
 
@@ -198,7 +251,9 @@ exports.updateProduct = async (req, res) => {
     });
   } catch (error) {
     req.files?.forEach((f) => deleteFile(f.path)); // ✅ fire and forget
-    res.status(500).json({ message: "Failed to update product", success: false });
+    res
+      .status(500)
+      .json({ message: "Failed to update product", success: false });
   }
 };
 
@@ -208,7 +263,9 @@ exports.deleteProduct = async (req, res) => {
 
     const product = await Product.findById(id);
     if (!product) {
-      return res.status(404).json({ message: "Product not found", success: false });
+      return res
+        .status(404)
+        .json({ message: "Product not found", success: false });
     }
 
     await Product.findByIdAndDelete(id);
@@ -221,7 +278,9 @@ exports.deleteProduct = async (req, res) => {
       success: true,
     });
   } catch (error) {
-    res.status(500).json({ message: "Failed to delete product", success: false });
+    res
+      .status(500)
+      .json({ message: "Failed to delete product", success: false });
   }
 };
 
@@ -242,7 +301,7 @@ exports.addVariant = async (req, res) => {
 
     const images = req.files?.images || [];
     const uploaded = await Promise.all(
-      images.map((file) => fileUpload(file.buffer.toString("base64"), uuid()))
+      images.map((file) => fileUpload(file.buffer.toString("base64"), uuid())),
     );
 
     product.variants.push({
@@ -277,7 +336,7 @@ exports.updateVariant = async (req, res) => {
     if (color) {
       const newColor = color.toLowerCase().trim();
       const exists = product.variants.some(
-        (v) => v._id.toString() !== variantId && v.color === newColor
+        (v) => v._id.toString() !== variantId && v.color === newColor,
       );
       if (exists) {
         return res.status(400).json({ error: "Variant color already exists" });
@@ -286,15 +345,17 @@ exports.updateVariant = async (req, res) => {
     }
 
     if (removedImages) {
-      const removed = Array.isArray(removedImages) ? removedImages : [removedImages];
+      const removed = Array.isArray(removedImages)
+        ? removedImages
+        : [removedImages];
       variant.images = variant.images.filter((img) => !removed.includes(img));
     }
 
     if (req.files?.images?.length) {
       const uploaded = await Promise.all(
         req.files.images.map((file) =>
-          fileUpload(file.buffer.toString("base64"), uuid())
-        )
+          fileUpload(file.buffer.toString("base64"), uuid()),
+        ),
       );
       variant.images.push(...uploaded.map((i) => i.url));
     }
@@ -317,7 +378,7 @@ exports.deleteVariant = async (req, res) => {
     const product = await Product.findByIdAndUpdate(
       productId,
       { $pull: { variants: { _id: variantId } } },
-      { new: true }
+      { new: true },
     );
 
     if (!product) {
@@ -345,7 +406,7 @@ exports.getProductWithVariant = async (req, res) => {
 
     const product = await Product.findOne(
       { _id: productId, "variants._id": variantId },
-      { name: 1, description: 1, category: 1, subcategory: 1, "variants.$": 1 }
+      { name: 1, description: 1, category: 1, subcategory: 1, "variants.$": 1 },
     );
 
     if (!product) {
@@ -380,7 +441,9 @@ exports.addSizeToVariant = async (req, res) => {
 
     const exists = variant.sizes.some((s) => s.size === normalizedSize);
     if (exists) {
-      return res.status(400).json({ error: "Size already exists for this variant" });
+      return res
+        .status(400)
+        .json({ error: "Size already exists for this variant" });
     }
 
     variant.sizes.push({
@@ -428,28 +491,31 @@ exports.bulkImportProducts = async (req, res) => {
       images: product.images || [],
     }));
 
-    const insertedProducts = await Product.insertMany(sanitizedProducts, { ordered: false });
+    const insertedProducts = await Product.insertMany(sanitizedProducts, {
+      ordered: false,
+    });
 
-    await notificationService.notifyAllCustomers(
-      {
-        title: "New Products Added",
-        body: `${insertedProducts[0]?.brand || "New"} parts now available. Check the catalog.`,
-        category: "info",
-        data: {
-          count: insertedProducts.length,
-          brand: insertedProducts[0]?.brand || "",
-        },
+    await sendToTopic("all_users", {
+      title: "New Product Added",
+      body: `${product.name} has been added. Limited stock available.`,
+      data: {
+        type: "product",
+        productId: product._id.toString(),
       },
-      { createdBy: req.user?._id || null }
-    );
+    });
 
     return res.status(201).json({
       success: true,
       message: `${insertedProducts.length} products imported successfully`,
-      products: insertedProducts.map((product) => serializeProduct(req, product)),
+      products: insertedProducts.map((product) =>
+        serializeProduct(req, product),
+      ),
     });
   } catch (error) {
     console.error("[Product] bulkImportProducts error:", error);
-    return res.status(500).json({ success: false, message: error.message || "Failed to import products" });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to import products",
+    });
   }
 };

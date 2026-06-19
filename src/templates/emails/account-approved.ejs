@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <body style="margin: 0; background: #f4f6f8; font-family: Arial, sans-serif">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
+          <table
+            width="650"
+            cellpadding="0"
+            cellspacing="0"
+            style="
+              background: #ffffff;
+              margin: 40px 0;
+              border-radius: 12px;
+              overflow: hidden;
+            "
+          >
+            <tr>
+              <td
+                style="background: #0f766e; padding: 40px; text-align: center"
+              >
+                <img
+                  src="<%= logoUrl %>"
+                  alt="NSSON"
+                  width="160"
+                  style="display: block; margin: auto auto 25px auto"
+                />
+
+                <h1 style="color: #fff; margin: 0">NSSON AUTO PARTS</h1>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding: 40px">
+                <h2 style="color: #047857">Account Approved</h2>
+
+                <p>Dear <strong><%= firstName %></strong>,</p>
+
+                <p>
+                  We are pleased to inform you that your retailer account has
+                  been successfully approved and activated.
+                </p>
+
+                <div
+                  style="
+                    background: #ecfdf5;
+                    padding: 20px;
+                    border-left: 4px solid #10b981;
+                    border-radius: 6px;
+                    margin: 25px 0;
+                  "
+                >
+                  <strong>Status:</strong> Active
+
+                  <br /><br />
+
+                  You may now browse products, view stock availability, and
+                  place orders using your registered credentials.
+                </div>
+
+                <p>Thank you for partnering with NSSON Auto Parts.</p>
+
+                <p>
+                  Regards,<br />
+                  Team NSSON Auto Parts
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td
+                style="
+                  background: #f8fafc;
+                  padding: 30px;
+                  text-align: center;
+                  border-top: 1px solid #e5e7eb;
+                "
+              >
+                <p style="margin: 0; font-weight: 600">NSSON Auto Parts</p>
+
+                <p style="margin: 8px 0; color: #6b7280">
+                  📞 <%= supportPhone %>
+                </p>
+
+                <p style="margin: 8px 0; color: #6b7280">
+                  ✉️ <%= supportEmail %>
+                </p>
+
+                <p style="margin-top: 20px; color: #9ca3af; font-size: 12px">
+                  © <%= currentYear %> NSSON Auto Parts. All Rights Reserved.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
