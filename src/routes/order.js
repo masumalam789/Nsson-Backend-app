@@ -39,7 +39,7 @@ router.patch(
 );
 
 // ─── User routes ──────────────────────────────────────────────────────────────
-router.post('/',           authMiddleware,  createOrder);
+router.post('/',           authMiddleware, validateCreateOrder,  createOrder);
 router.get ('/',           authMiddleware,                       getMyOrders);
 router.get ('/:id',        authMiddleware, validateOrderIdParam, getOrderById);
 router.put ('/:id/cancel', authMiddleware, validateOrderIdParam, cancelOrder);

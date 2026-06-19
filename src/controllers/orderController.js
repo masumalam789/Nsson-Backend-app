@@ -45,106 +45,135 @@ const serializeAdminOrder = (order) => {
   return obj;
 };
 
-// ─── POST /api/orders ─────────────────────────────────────────────────────────
+class OrderError extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
+/**
+ * 1. Create the order from the user's cart.
+ */
+async function createOrderFromCart({ userId, shippingAddressId, paymentMethod }) {
+  const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
+
+  if (!shippingAddressId) {
+    throw new OrderError(400, 'Shipping address ID is required');
+  }
+
+  const isAddressValid = await Address.findOne({
+    _id: shippingAddressId,
+  });
+
+  if (!isAddressValid) {
+    throw new OrderError(404, 'Address not found or does not belong to you');
+  }
+
+  const cart = await Cart.findOne({ user: userId })
+    .populate('items.product', 'name stock price');
+
+  if (!cart || cart.items.length === 0) {
+    throw new OrderError(400, 'Cart is empty');
+  }
+
+  const orderItems = [];
+  for (const item of cart.items) {
+    const product = item.product;
+    if (!product) {
+      throw new OrderError(400, 'One or more products no longer exist');
+    }
+    if (product.stock < item.quantity) {
+      throw new OrderError(
+        400,
+        `Insufficient stock for "${product.name}" (available: ${product.stock})`
+      );
+    }
+    orderItems.push({
+      productId: product._id,
+      name:      product.name,
+      quantity:  item.quantity,
+      price:     product.price,
+    });
+  }
+
+  const total = calcTotal(orderItems);
+
+  const order = await Order.create({
+    userId:          userId,
+    items:           orderItems,
+    shippingAddress: shippingAddressId,
+    paymentMethod:   normalizedPaymentMethod,
+    total,
+    status:          'pending',
+    paymentStatus:   'UNPAID',
+  });
+
+  await notificationService.notifyUser(userId, {
+    title: normalizedPaymentMethod === 'cash_on_delivery' ? 'Order Placed' : 'Order Created',
+    body: normalizedPaymentMethod === 'cash_on_delivery'
+      ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
+      : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
+    category: 'approved',
+    data: {
+      orderId: order._id,
+      paymentMethod: normalizedPaymentMethod,
+      status: order.status,
+      amount: order.total,
+    },
+  });
+
+  return order;
+}
+
+/**
+ * 2. Reduce stock for each item in the order.
+ */
+async function reduceStockForOrder(order) {
+  await Promise.all(
+    order.items.map(({ productId, quantity }) =>
+      Product.findByIdAndUpdate(productId, { $inc: { stock: -quantity } })
+    )
+  );
+}
+
+/**
+ * 3. Clear / delete the user's cart.
+ */
+async function clearCart(userId) {
+  await Cart.findOneAndDelete({ user: userId });
+}
+
+// 4. RESTORE STOCKS FOR ORDER
+async function restoreStockForOrder(order) {
+  await Promise.all(
+    order.items.map(({ productId, quantity }) =>
+      Product.findByIdAndUpdate(
+        productId,
+        { $inc: { stock: quantity } }
+      )
+    )
+  );
+}
+
 exports.createOrder = async (req, res) => {
   try {
     const { shippingAddressId, paymentMethod } = req.body;
-    const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
-    if (!shippingAddressId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Shipping address ID is required" });
-    }
-
-    const isAddressValid = await Address.findOne({
-      _id: shippingAddressId,
-    });
-
-    if (!isAddressValid) {
-      return res.status(404).json({
-        success: false,
-        message: "Address not found or does not belong to you",
-      });
-    }
-
-    const cart = await Cart.findOne({ user: req.user._id }).populate(
-      "items.product",
-      "name stock price",
-    );
-
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ success: false, message: "Cart is empty" });
-    }
-
-    const orderItems = [];
-    for (const item of cart.items) {
-      const product = item.product;
-      if (!product) {
-        return res.status(400).json({
-          success: false,
-          message: "One or more products no longer exist",
-        });
-      }
-      if (product.stock < item.quantity) {
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for "${product.name}" (available: ${product.stock})`,
-        });
-      }
-      orderItems.push({
-        productId: product._id,
-        name: product.name,
-        quantity: item.quantity,
-        price: product.price,
-      });
-    }
-
-    const total = calcTotal(orderItems);
-
-    const order = await Order.create({
+    // 1. Create order
+    const order = await createOrderFromCart({
       userId: req.user._id,
-      items: orderItems,
-      shippingAddress: shippingAddressId,
-      paymentMethod: normalizedPaymentMethod,
-      total,
-      status: "pending",
-      paymentStatus: "UNPAID",
+      shippingAddressId,
+      paymentMethod,
     });
 
-    const user = await User.findById(req.user._id).select("fcmToken");
+    // 2. Reduce stock
+    await reduceStockForOrder(order);
 
-    if (user?.fcmToken) {
-      await sendToDevice(user.fcmToken, {
-        title:
-          normalizedPaymentMethod === "cash_on_delivery"
-            ? "Order Placed"
-            : "Order Created",
-
-        body:
-          normalizedPaymentMethod === "cash_on_delivery"
-            ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
-            : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
-
-        data: {
-          type: "order",
-          orderId: order._id.toString(),
-          paymentMethod: normalizedPaymentMethod,
-          status: order.status,
-          amount: order.total.toString(),
-        },
-      });
+    if (order.paymentMethod === 'cash_on_delivery') {
+      // 3. Clear cart
+      await clearCart(req.user._id);
     }
-
-    // Decrement stock
-    await Promise.all(
-      orderItems.map(({ productId, quantity }) =>
-        Product.findByIdAndUpdate(productId, { $inc: { stock: -quantity } }),
-      ),
-    );
-
-    // Clear the cart
-    await Cart.findOneAndDelete({ user: req.user._id });
 
     return res.status(201).json({
       success: true,
@@ -158,8 +187,11 @@ exports.createOrder = async (req, res) => {
       data: order,
     });
   } catch (err) {
-    console.error("[OrderController] createOrder:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    if (err instanceof OrderError) {
+      return res.status(err.statusCode).json({ success: false, message: err.message });
+    }
+    console.error('[OrderController] createOrder:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -363,3 +395,8 @@ exports.updateOrderStatus = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+module.exports.createOrderFromCart = createOrderFromCart;
+module.exports.reduceStockForOrder = reduceStockForOrder;
+module.exports.clearCart = clearCart;
+module.exports.OrderError = OrderError;
