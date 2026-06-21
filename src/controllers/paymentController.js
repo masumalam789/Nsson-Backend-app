@@ -30,26 +30,6 @@ exports.initiateRazorpay = async (req, res) => {
       shippingAddress,
     });
 
-    // Notify user that order is created, awaiting payment (best effort)
-    try {
-      await sendToUser(req.user._id, {
-        title: "Order Created",
-        body: `Your order of ₹${(result.amount / 100).toFixed(2)} was created. Complete payment within 3 minutes to confirm.`,
-        data: {
-          type: "order",
-          orderId: result.appOrderId,
-          paymentMethod: "razorpay_upi",
-          status: "awaiting_payment",
-          amount: result.amount / 100,
-        },
-      });
-    } catch (notifErr) {
-      console.error(
-        "[PaymentController] FCM sendToUser error during initiate:",
-        notifErr?.message || notifErr
-      );
-    }
-
     return res.status(200).json({
       success: true,
       message: "Razorpay order created. Complete payment within 3 minutes.",
@@ -58,13 +38,15 @@ exports.initiateRazorpay = async (req, res) => {
   } catch (error) {
     const msg =
       error?.message ||
-      error?.error?.description ||         // Razorpay SDK error shape
-      (error?.errors                        // Mongoose validation error
-        ? Object.values(error.errors).map((e) => e.message).join(', ')
+      error?.error?.description || // Razorpay SDK error shape
+      (error?.errors // Mongoose validation error
+        ? Object.values(error.errors)
+            .map((e) => e.message)
+            .join(", ")
         : null) ||
       JSON.stringify(error) ||
-      'Failed to initiate payment';
-    console.error('[PaymentController] initiateRazorpay:', msg);
+      "Failed to initiate payment";
+    console.error("[PaymentController] initiateRazorpay:", msg);
     return res.status(400).json({ success: false, message: msg });
   }
 };
@@ -79,11 +61,8 @@ exports.getRazorpayKey = async (req, res) => {
 // Verifies HMAC signature, checks expiry, marks paid, clears cart.
 exports.verifyPayment = async (req, res) => {
   try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-    } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      req.body;
     const appOrderId = req.body.appOrderId || req.body.orderId;
 
     if (
@@ -123,7 +102,7 @@ exports.verifyPayment = async (req, res) => {
     } catch (notifErr) {
       console.error(
         "[PaymentController] FCM sendToUser error during verify:",
-        notifErr?.message || notifErr
+        notifErr?.message || notifErr,
       );
     }
 
@@ -138,11 +117,13 @@ exports.verifyPayment = async (req, res) => {
       error?.message ||
       error?.error?.description ||
       (error?.errors
-        ? Object.values(error.errors).map((e) => e.message).join(', ')
+        ? Object.values(error.errors)
+            .map((e) => e.message)
+            .join(", ")
         : null) ||
       JSON.stringify(error) ||
-      'Payment verification failed';
-    console.error('[PaymentController] verifyPayment:', msg);
+      "Payment verification failed";
+    console.error("[PaymentController] verifyPayment:", msg);
     return res.status(400).json({ success: false, message: msg });
   }
 };
@@ -174,11 +155,13 @@ exports.checkPaymentStatus = async (req, res) => {
       error?.message ||
       error?.error?.description ||
       (error?.errors
-        ? Object.values(error.errors).map((e) => e.message).join(', ')
+        ? Object.values(error.errors)
+            .map((e) => e.message)
+            .join(", ")
         : null) ||
       JSON.stringify(error) ||
-      'Failed to check payment status';
-    console.error('[PaymentController] checkPaymentStatus:', msg);
+      "Failed to check payment status";
+    console.error("[PaymentController] checkPaymentStatus:", msg);
     return res.status(400).json({ success: false, message: msg });
   }
 };
@@ -270,7 +253,7 @@ exports.handleWebhook = async (req, res) => {
           } catch (notifErr) {
             console.error(
               "[Webhook] Notification error:",
-              notifErr?.message || notifErr
+              notifErr?.message || notifErr,
             );
           }
         }
