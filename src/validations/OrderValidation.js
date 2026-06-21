@@ -18,58 +18,11 @@ const validate = (req, res, next) => {
 // ─── Allowed enums (keep in sync with your Order model) ──────────────────────
 const ORDER_STATUSES   = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 const PAYMENT_STATUSES = ['unpaid', 'pending', 'paid', 'failed', 'refunded'];
-const PAYMENT_METHODS  = ['card', 'cash_on_delivery', 'wallet', 'cod', 'cash on delivery', 'prepaid', 'razorpay_upi'];
+const PAYMENT_METHODS  = ['cash_on_delivery', 'razorpay_upi'];
 
 // ─── POST /api/orders ─────────────────────────────────────────────────────────
 exports.validateCreateOrder = [
-  body('shippingAddress')
-    .notEmpty()
-    .withMessage('shippingAddress is required')
-    .isObject()
-    .withMessage('shippingAddress must be an object'),
-
-  body('shippingAddress.fullName')
-    .notEmpty()
-    .withMessage('shippingAddress.fullName is required')
-    .isString()
-    .trim(),
-
-  body('shippingAddress.phone')
-    .notEmpty()
-    .withMessage('shippingAddress.phone is required')
-    .isMobilePhone()
-    .withMessage('shippingAddress.phone must be a valid phone number'),
-
-  body('shippingAddress.addressLine1')
-    .notEmpty()
-    .withMessage('shippingAddress.addressLine1 is required')
-    .isString()
-    .trim(),
-
-  body('shippingAddress.city')
-    .notEmpty()
-    .withMessage('shippingAddress.city is required')
-    .isString()
-    .trim(),
-
-  body('shippingAddress.state')
-    .notEmpty()
-    .withMessage('shippingAddress.state is required')
-    .isString()
-    .trim(),
-
-  body('shippingAddress.postalCode')
-    .notEmpty()
-    .withMessage('shippingAddress.postalCode is required')
-    .isPostalCode('any')
-    .withMessage('shippingAddress.postalCode must be a valid postal code'),
-
-  body('shippingAddress.country')
-    .notEmpty()
-    .withMessage('shippingAddress.country is required')
-    .isISO31661Alpha2()
-    .withMessage('shippingAddress.country must be a valid ISO 3166-1 alpha-2 country code (e.g. "US")'),
-
+  
   body('paymentMethod')
     .notEmpty()
     .withMessage('paymentMethod is required')

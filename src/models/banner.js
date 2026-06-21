@@ -16,11 +16,6 @@ const bannerSchema = new mongoose.Schema(
       maxlength: [400, "Subheading cannot exceed 400 characters"],
       default: "",
     },
-    link: {
-      type: String,
-      trim: true,
-      default: "",
-    },
     image: {
       filename:     { type: String, default: null },
       originalName: { type: String, default: null },
@@ -44,6 +39,11 @@ const bannerSchema = new mongoose.Schema(
         message: 'Status must be "active" or "inactive"',
       },
       default: "active",
+    },
+    product_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      default: null,
     },
     startDate: { type: Date, default: null },
     endDate:   { type: Date, default: null },

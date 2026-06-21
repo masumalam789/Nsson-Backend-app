@@ -1,62 +1,138 @@
-'use strict';
+"use strict";
 
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer = require("multer");
+const { v2: cloudinary } = require("cloudinary");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
-const UPLOAD_DIR = path.join(__dirname, '../../uploads/banners');
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const basename = path.basename(file.originalname, ext)
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/gi, '')
-      .slice(0, 40)
-      .toLowerCase();
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    cb(null, `banner-${basename}-${unique}${ext}`);
-  },
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const fileFilter = (_req, file, cb) => {
-  const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-  if (allowed.includes(file.mimetype)) {
-    cb(null, true);
-    return;
-  }
-  const err = new Error('Only image files (JPEG, PNG, WEBP, GIF) are allowed');
-  err.status = 400;
-  cb(err, false);
-};
-
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 2 * 1024 * 1024,
-    files: 1,
-  },
-});
-
-const deleteFile = (filename) => {
-  if (!filename) return;
-  const filePath = path.join(UPLOAD_DIR, filename);
-  fs.unlink(filePath, (err) => {
-    if (err && err.code !== 'ENOENT') {
-      console.error(`Could not delete banner image ${filename}:`, err.message);
-    }
+// ─── Factory ──────────────────────────────────────────────────────────────────
+const createUploader = (folder = "general", prefix = "file") => {
+  const storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder,
+      allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"],
+      transformation: [{ quality: "auto", fetch_format: "auto" }],
+      public_id: (_req, file) => {
+        const basename = file.originalname
+          .replace(/\.[^/.]+$/, "")
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/gi, "")
+          .slice(0, 40)
+          .toLowerCase();
+        const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+        return `${prefix}-${basename}-${unique}`;
+      },
+    },
   });
+
+  const fileFilter = (_req, file, cb) => {
+    const allowed = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    const err = new Error(
+      "Only image files (JPEG, PNG, WEBP, GIF) are allowed",
+    );
+    err.status = 400;
+    cb(err, false);
+  };
+
+  const uploader = multer({
+    storage,
+    fileFilter,
+    limits: { fileSize: 2 * 1024 * 1024 },
+  });
+
+  // ✅ wrap every multer method to catch errors and return clean JSON
+  const handleMulterError = (multerFn) => (req, res, next) => {
+    multerFn(req, res, (err) => {
+      if (!err) return next();
+
+      if (err instanceof multer.MulterError) {
+        // multer-specific errors
+        const messages = {
+          LIMIT_FILE_SIZE: "File too large. Maximum size is 2MB.",
+          LIMIT_FILE_COUNT: "Too many files uploaded.",
+          LIMIT_FIELD_KEY: "Field name too long.",
+          LIMIT_UNEXPECTED_FILE: `Unexpected field. Use the correct field name.`,
+        };
+        return res.status(400).json({
+          success: false,
+          error: "Upload error",
+          message: messages[err.code] || err.message,
+        });
+      }
+
+      // fileFilter errors (wrong mime type etc.)
+      if (err.status === 400) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid file",
+          message: err.message,
+        });
+      }
+
+      // cloudinary or unknown errors
+      console.error("Upload error:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Upload failed",
+        message: err.message || "Something went wrong during upload",
+      });
+    });
+  };
+
+  // return same API as multer but wrapped
+  return {
+    single: (fieldName) => handleMulterError(uploader.single(fieldName)),
+    array: (fieldName, maxCount) =>
+      handleMulterError(uploader.array(fieldName, maxCount)),
+    fields: (fields) => handleMulterError(uploader.fields(fields)),
+    none: () => handleMulterError(uploader.none()),
+  };
 };
 
-const buildUrl = (filename) => {
-  if (!filename) return '';
-  const base = process.env.BASE_URL || 'https://garage-admin-backend-1.onrender.com';
-  return `${base}/uploads/banners/${filename}`;
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+const deleteFile = async (publicIdOrUrl) => {
+  if (!publicIdOrUrl) return;
+  try {
+    let publicId = publicIdOrUrl;
+    if (publicIdOrUrl.startsWith("http")) {
+      const parts = publicIdOrUrl.split("/");
+      const file = parts.pop().split(".")[0];
+      const folder = parts.pop();
+      publicId = `${folder}/${file}`;
+    }
+    await cloudinary.uploader.destroy(publicId);
+  } catch (err) {
+    console.error("Could not delete Cloudinary image:", err.message);
+  }
 };
 
-module.exports = { upload, deleteFile, buildUrl };
+const buildUrl = (publicIdOrUrl) => {
+  if (!publicIdOrUrl) return "";
+  if (publicIdOrUrl.startsWith("http")) return publicIdOrUrl;
+  return cloudinary.url(publicIdOrUrl);
+};
+
+// ─── Pre-built uploaders ──────────────────────────────────────────────────────
+const upload = createUploader("banners", "banner");
+const productUpload = createUploader("products", "product");
+
+module.exports = {
+  upload,
+  productUpload,
+  createUploader,
+  deleteFile,
+  buildUrl,
+};
