@@ -5,7 +5,7 @@ const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const Address = require("../models/Address");
 const notificationService = require("../services/notificationService");
-const { sendToDevice } = require("../utils/appPushNotification");
+const { sendToUser } = require("../utils/appPushNotification");
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 const calcTotal = (items) =>
@@ -55,11 +55,15 @@ class OrderError extends Error {
 /**
  * 1. Create the order from the user's cart.
  */
-async function createOrderFromCart({ userId, shippingAddressId, paymentMethod }) {
+async function createOrderFromCart({
+  userId,
+  shippingAddressId,
+  paymentMethod,
+}) {
   const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
   if (!shippingAddressId) {
-    throw new OrderError(400, 'Shipping address ID is required');
+    throw new OrderError(400, "Shipping address ID is required");
   }
 
   const isAddressValid = await Address.findOne({
@@ -67,62 +71,69 @@ async function createOrderFromCart({ userId, shippingAddressId, paymentMethod })
   });
 
   if (!isAddressValid) {
-    throw new OrderError(404, 'Address not found or does not belong to you');
+    throw new OrderError(404, "Address not found or does not belong to you");
   }
 
-  const cart = await Cart.findOne({ user: userId })
-    .populate('items.product', 'name stock price');
+  const cart = await Cart.findOne({ user: userId }).populate(
+    "items.product",
+    "name stock price",
+  );
 
   if (!cart || cart.items.length === 0) {
-    throw new OrderError(400, 'Cart is empty');
+    throw new OrderError(400, "Cart is empty");
   }
 
   const orderItems = [];
   for (const item of cart.items) {
     const product = item.product;
     if (!product) {
-      throw new OrderError(400, 'One or more products no longer exist');
+      throw new OrderError(400, "One or more products no longer exist");
     }
     if (product.stock < item.quantity) {
       throw new OrderError(
         400,
-        `Insufficient stock for "${product.name}" (available: ${product.stock})`
+        `Insufficient stock for "${product.name}" (available: ${product.stock})`,
       );
     }
     orderItems.push({
       productId: product._id,
-      name:      product.name,
-      quantity:  item.quantity,
-      price:     product.price,
+      name: product.name,
+      quantity: item.quantity,
+      price: product.price,
     });
   }
 
   const total = calcTotal(orderItems);
 
   const order = await Order.create({
-    userId:          userId,
-    items:           orderItems,
+    userId: userId,
+    items: orderItems,
     shippingAddress: shippingAddressId,
-    paymentMethod:   normalizedPaymentMethod,
+    paymentMethod: normalizedPaymentMethod,
     total,
-    status:          'pending',
-    paymentStatus:   'UNPAID',
+    status: "pending",
+    paymentStatus: "UNPAID",
   });
 
-  await notificationService.notifyUser(userId, {
-    title: normalizedPaymentMethod === 'cash_on_delivery' ? 'Order Placed' : 'Order Created',
-    body: normalizedPaymentMethod === 'cash_on_delivery'
-      ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
-      : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
-    category: 'approved',
+  await sendToUser(userId, {
+    title:
+      normalizedPaymentMethod === "cash_on_delivery"
+        ? "Order Placed"
+        : "Order Created",
+
+    body:
+      normalizedPaymentMethod === "cash_on_delivery"
+        ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
+        : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
+
     data: {
+      type: "order",
       orderId: order._id,
       paymentMethod: normalizedPaymentMethod,
       status: order.status,
       amount: order.total,
     },
   });
-
   return order;
 }
 
@@ -132,8 +143,8 @@ async function createOrderFromCart({ userId, shippingAddressId, paymentMethod })
 async function reduceStockForOrder(order) {
   await Promise.all(
     order.items.map(({ productId, quantity }) =>
-      Product.findByIdAndUpdate(productId, { $inc: { stock: -quantity } })
-    )
+      Product.findByIdAndUpdate(productId, { $inc: { stock: -quantity } }),
+    ),
   );
 }
 
@@ -148,11 +159,8 @@ async function clearCart(userId) {
 async function restoreStockForOrder(order) {
   await Promise.all(
     order.items.map(({ productId, quantity }) =>
-      Product.findByIdAndUpdate(
-        productId,
-        { $inc: { stock: quantity } }
-      )
-    )
+      Product.findByIdAndUpdate(productId, { $inc: { stock: quantity } }),
+    ),
   );
 }
 
@@ -160,6 +168,7 @@ exports.createOrder = async (req, res) => {
   try {
     const { shippingAddressId, paymentMethod } = req.body;
 
+    console.log(req.body);
     // 1. Create order
     const order = await createOrderFromCart({
       userId: req.user._id,
@@ -170,7 +179,7 @@ exports.createOrder = async (req, res) => {
     // 2. Reduce stock
     await reduceStockForOrder(order);
 
-    if (order.paymentMethod === 'cash_on_delivery') {
+    if (order.paymentMethod === "cash_on_delivery") {
       // 3. Clear cart
       await clearCart(req.user._id);
     }
@@ -188,10 +197,12 @@ exports.createOrder = async (req, res) => {
     });
   } catch (err) {
     if (err instanceof OrderError) {
-      return res.status(err.statusCode).json({ success: false, message: err.message });
+      return res
+        .status(err.statusCode)
+        .json({ success: false, message: err.message });
     }
-    console.error('[OrderController] createOrder:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    console.error("[OrderController] createOrder:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
@@ -400,3 +411,4 @@ module.exports.createOrderFromCart = createOrderFromCart;
 module.exports.reduceStockForOrder = reduceStockForOrder;
 module.exports.clearCart = clearCart;
 module.exports.OrderError = OrderError;
+

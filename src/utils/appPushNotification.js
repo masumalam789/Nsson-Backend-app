@@ -1,5 +1,6 @@
 "use strict";
 
+const User = require("../models/User");
 const app = require("../config/firebase");
 const { getMessaging } = require("firebase-admin/messaging");
 
@@ -8,12 +9,23 @@ const messaging = getMessaging(app);
 /**
  * Send notification to a single device
  */
-const sendToDevice = async (token, { title, body, data = {} }) => {
+
+const sendToUser = async (userId, { title, body, data = {} }) => {
   try {
-    if (!token) return null;
+    const user = await User.findById(userId, "fcmToken");
+
+    if (!user) {
+      console.log(`❌ User ${userId} not found`);
+      return null;
+    }
+
+    if (!user.fcmToken) {
+      console.log(`❌ No FCM token found for user ${userId}`);
+      return null;
+    }
 
     const response = await messaging.send({
-      token,
+      token: user.fcmToken,
       notification: {
         title,
         body,
@@ -37,11 +49,12 @@ const sendToDevice = async (token, { title, body, data = {} }) => {
       },
     });
 
-    console.log("✅ Notification sent:", response);
+    console.log(`✅ Notification sent to user ${userId}`, response);
 
     return response;
   } catch (error) {
     console.error("❌ FCM Error:", error.message);
+
     return null;
   }
 };
@@ -137,8 +150,7 @@ const sendToTopic = async (topic, { title, body, data = {} }) => {
 };
 
 module.exports = {
-  sendToDevice,
+  sendToUser,
   sendToMultipleDevices,
   sendToTopic,
 };
-
