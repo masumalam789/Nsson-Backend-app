@@ -11,10 +11,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://admin-garage-ecommerencr.vercel.app",
-      "https://nsson.netlify.app",
-      "https://admin-garage3-ecommerencr.vercel.app",
-      "http://localhost:3001",
+      "https://nasson-moto-admin-panel.onrender.com/login"
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
