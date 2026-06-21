@@ -19,6 +19,8 @@ const payment_router = require("./paymentRoute");
 const addressRoutes = require("./address");
 const notificationRoutes = require("./notifications");
 const discountRoutes = require("./discounts");
+const couponRoutes = require("./coupon");
+
 // ─── Health / test ────────────────────────────────────────────────────────────
 router.get("/admin-test", (req, res) => {
   res.json({
@@ -43,6 +45,7 @@ router.use("/payments", payment_router);
 router.use("/address", addressRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/discounts", discountRoutes);
+router.use("/coupon", couponRoutes);
 console.log("🎉 All routes mounted successfully!");
 
 module.exports = router;
