@@ -116,29 +116,31 @@ async function createOrderFromCart({
   });
 
   try {
-    await sendToUser(userId, {
-      title:
-        normalizedPaymentMethod === "cash_on_delivery"
-          ? "Order Placed"
-          : "Order Created",
+    if (normalizedPaymentMethod !== "razorpay_upi") {
+      await sendToUser(userId, {
+        title:
+          normalizedPaymentMethod === "cash_on_delivery"
+            ? "Order Placed"
+            : "Order Created",
 
-      body:
-        normalizedPaymentMethod === "cash_on_delivery"
-          ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
-          : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
+        body:
+          normalizedPaymentMethod === "cash_on_delivery"
+            ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
+            : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
 
-      data: {
-        type: "order",
-        orderId: order._id,
-        paymentMethod: normalizedPaymentMethod,
-        status: order.status,
-        amount: order.total,
-      },
-    });
+        data: {
+          type: "order",
+          orderId: order._id,
+          paymentMethod: normalizedPaymentMethod,
+          status: order.status,
+          amount: order.total,
+        },
+      });
+    }
   } catch (notifErr) {
     console.error(
       "[OrderController] FCM sendToUser error during order creation:",
-      notifErr?.message || notifErr
+      notifErr?.message || notifErr,
     );
   }
   return order;
@@ -178,7 +180,10 @@ exports.createOrder = async (req, res) => {
     const normalizedMethod = normalizePaymentMethod(paymentMethod);
 
     // Block Razorpay from this endpoint — must use POST /payments/razorpay/initiate
-    if (normalizedMethod === "razorpay_upi" || normalizedMethod === "razorpay") {
+    if (
+      normalizedMethod === "razorpay_upi" ||
+      normalizedMethod === "razorpay"
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -423,4 +428,3 @@ module.exports.createOrderFromCart = createOrderFromCart;
 module.exports.reduceStockForOrder = reduceStockForOrder;
 module.exports.clearCart = clearCart;
 module.exports.OrderError = OrderError;
-
