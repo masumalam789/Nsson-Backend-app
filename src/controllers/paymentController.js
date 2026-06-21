@@ -6,8 +6,8 @@ const PaymentService = require("../services/paymentService");
 const Payment = require("../models/Payment");
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
-const notificationService = require("../services/notificationService");
 const { sendToUser } = require("../utils/appPushNotification");
+const EmailService = require("../services/emailService");
 
 // ─── POST /api/payments/razorpay/initiate ─────────────────────────────────────
 // Single endpoint: validates cart → creates order → reserves stock → creates
@@ -85,6 +85,7 @@ exports.verifyPayment = async (req, res) => {
       appOrderId,
       userId: req.user._id,
     });
+    const order = await Order.findById(appOrderId);
 
     // Push notification on success (best effort)
     try {
@@ -99,6 +100,7 @@ exports.verifyPayment = async (req, res) => {
           amount: payment.amount ? payment.amount / 100 : 0,
         },
       });
+      await EmailService.sendOrderConfirmedEmail(req.user, order, payment);
     } catch (notifErr) {
       console.error(
         "[PaymentController] FCM sendToUser error during verify:",

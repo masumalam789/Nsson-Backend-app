@@ -97,6 +97,19 @@ class EmailService {
       },
     });
   }
+  static async sendOrderConfirmedEmail(user, order) {
+    return this.sendMail({
+      to: user.email,
+      subject: "Your Order Has Been Confirmed - NSSON Auto Parts",
+      template: "order-confirmed",
+      data: {
+        customerName: user.firstName,
+        orderNumber: order.orderNumber || order._id,
+        totalAmount: order.total,
+        paymentMethod: order.paymentMethod,
+      },
+    });
+  }
 }
 
 module.exports = EmailService;
