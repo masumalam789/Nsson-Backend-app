@@ -154,19 +154,15 @@ const createBanner = async (req, res) => {
     }
 
     const banner = await Banner.create(data);
-
-    await notificationService.notifyAllCustomers(
-      {
-        title: "New Arrival",
-        body: `Fresh stock available in ${resolveBannerCategory(banner)}.`,
-        category: "info",
-        data: {
-          bannerId: banner._id,
-          category: resolveBannerCategory(banner),
-        },
+    await sendToTopic("all_users", {
+      title: "🔥 New Offer Available",
+      body: `${banner.heading}${banner.subheading ? '\n' + banner.subheading : ''}`,
+      data: {
+        type: "banner",
+        bannerId: banner._id.toString(),
+        category: resolveBannerCategory(banner),
       },
-      { createdBy: req.user?._id || null },
-    );
+    });
 
     res.status(201).json({
       success: true,
@@ -401,4 +397,3 @@ const resolveBannerCategory = (bannerLike) => {
 // }
 
 // fun();
-

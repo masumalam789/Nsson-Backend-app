@@ -10,10 +10,10 @@ const paymentSchema = new mongoose.Schema(
       index: true,
     },
     cartIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Cart" }],
+    // Accepts either a saved Address ObjectId or an inline address object
     address: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Address",
-      required: true,
+      type: mongoose.Schema.Types.Mixed,
+      required: false,
     },
     orderId: {
       type: String,
@@ -54,7 +54,7 @@ const paymentSchema = new mongoose.Schema(
     failedAt: { type: Date },
     expiresAt: {
       type: Date,
-      default: () => new Date(Date.now() + 30 * 60 * 1000),
+      default: () => new Date(Date.now() + 3 * 60 * 1000), // 3 minutes
     },
     statusCheckCount: { type: Number, default: 0 },
   },

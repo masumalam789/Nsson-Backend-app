@@ -21,9 +21,10 @@ const orderSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  // Accepts either a saved Address ObjectId OR an inline address object
+  // (when user enters a new address at checkout without saving it)
   shippingAddress: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Address',
+    type: mongoose.Schema.Types.Mixed,
     required: true
   },
   paymentMethod: {
@@ -36,9 +37,14 @@ const orderSchema = new mongoose.Schema({
     enum: ['UNPAID', 'PENDING', 'PAID', 'FAILED', 'REFUNDED'],
     default: 'UNPAID'
   },
+  paymentExpiry: {
+    type: Date,
+    default: null,
+    index: true,
+  },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+    enum: ['awaiting_payment', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'],
     default: 'pending'
   },
   trackingNumber: {
@@ -54,7 +60,7 @@ const orderSchema = new mongoose.Schema({
   },
   cancelledBy: {
     type: String,
-    enum: ['user', 'admin', null],
+    enum: ['user', 'admin', 'system', null],
     default: null
   },
   orderDate: {

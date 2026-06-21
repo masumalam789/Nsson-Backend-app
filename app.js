@@ -3,6 +3,7 @@ const cors = require("cors");
 const path = require("path");
 
 const apiRoutes = require("./src/routes/index");
+const { startPaymentExpiryJob } = require("./src/utils/paymentExpiryJob");
 
 const app = express();
 
@@ -20,6 +21,13 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
+// ⚠️ Razorpay webhook needs raw body BEFORE express.json() parses it
+app.use(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json" })
+);
+app.use("/api/payment/webhook", express.raw({ type: "application/json" }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -69,5 +77,8 @@ app.use((err, req, res, next) => {
         : "Something went wrong",
   });
 });
+
+// Start payment expiry cron job
+startPaymentExpiryJob();
 
 module.exports = app;

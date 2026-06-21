@@ -115,25 +115,32 @@ async function createOrderFromCart({
     paymentStatus: "UNPAID",
   });
 
-  await sendToUser(userId, {
-    title:
-      normalizedPaymentMethod === "cash_on_delivery"
-        ? "Order Placed"
-        : "Order Created",
+  try {
+    await sendToUser(userId, {
+      title:
+        normalizedPaymentMethod === "cash_on_delivery"
+          ? "Order Placed"
+          : "Order Created",
 
-    body:
-      normalizedPaymentMethod === "cash_on_delivery"
-        ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
-        : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
+      body:
+        normalizedPaymentMethod === "cash_on_delivery"
+          ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
+          : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
 
-    data: {
-      type: "order",
-      orderId: order._id,
-      paymentMethod: normalizedPaymentMethod,
-      status: order.status,
-      amount: order.total,
-    },
-  });
+      data: {
+        type: "order",
+        orderId: order._id,
+        paymentMethod: normalizedPaymentMethod,
+        status: order.status,
+        amount: order.total,
+      },
+    });
+  } catch (notifErr) {
+    console.error(
+      "[OrderController] FCM sendToUser error during order creation:",
+      notifErr?.message || notifErr
+    );
+  }
   return order;
 }
 
@@ -168,21 +175,26 @@ exports.createOrder = async (req, res) => {
   try {
     const { shippingAddressId, paymentMethod } = req.body;
 
-    console.log(req.body);
-    // 1. Create order
+    const normalizedMethod = normalizePaymentMethod(paymentMethod);
+
+    // Block Razorpay from this endpoint — must use POST /payments/razorpay/initiate
+    if (normalizedMethod === "razorpay_upi" || normalizedMethod === "razorpay") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "For Razorpay payments, use POST /api/payments/razorpay/initiate instead.",
+      });
+    }
+
+    // COD flow: create order → reduce stock → clear cart
     const order = await createOrderFromCart({
       userId: req.user._id,
       shippingAddressId,
       paymentMethod,
     });
 
-    // 2. Reduce stock
     await reduceStockForOrder(order);
-
-    if (order.paymentMethod === "cash_on_delivery") {
-      // 3. Clear cart
-      await clearCart(req.user._id);
-    }
+    await clearCart(req.user._id);
 
     return res.status(201).json({
       success: true,

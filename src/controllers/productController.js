@@ -98,9 +98,13 @@ exports.createProduct = async (req, res) => {
       images: urls,
     });
 
+    const desc = product.description && product.description.length > 120
+      ? `${product.description.substring(0, 117)}...`
+      : (product.description || "");
+
     await sendToTopic("all_users", {
       title: "New Product Added",
-      body: product.name,
+      body: `${product.name} (${product.brand}) is now available for ₹${product.price}.${desc ? '\n' + desc : ''}`,
       data: {
         type: "product",
         productId: product._id.toString(),
@@ -495,14 +499,19 @@ exports.bulkImportProducts = async (req, res) => {
       ordered: false,
     });
 
-    await sendToTopic("all_users", {
-      title: "New Product Added",
-      body: `${product.name} has been added. Limited stock available.`,
-      data: {
-        type: "product",
-        productId: product._id.toString(),
-      },
-    });
+    if (insertedProducts && insertedProducts.length > 0) {
+      const firstProduct = insertedProducts[0];
+      await sendToTopic("all_users", {
+        title: "New Products Added",
+        body: insertedProducts.length === 1
+          ? `${firstProduct.name} (${firstProduct.brand}) is now available for ₹${firstProduct.price}.`
+          : `${firstProduct.name} and ${insertedProducts.length - 1} other products have been added.`,
+        data: {
+          type: "product",
+          productId: firstProduct._id.toString(),
+        },
+      });
+    }
 
     return res.status(201).json({
       success: true,
