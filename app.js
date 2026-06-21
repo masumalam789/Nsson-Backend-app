@@ -11,7 +11,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://nasson-moto-admin-panel.onrender.com/login"
+      "https://nasson-moto-admin-panel.onrender.com"
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
