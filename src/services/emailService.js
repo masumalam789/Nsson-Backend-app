@@ -87,6 +87,9 @@ class EmailService {
   }
 
   static async sendForgotPasswordEmail(user, resetToken) {
+
+    console.log("-----USER----", user)
+    console.log("-----RESET----", resetToken)
     return this.sendMail({
       to: user.email,
       subject: "Reset Your Password",

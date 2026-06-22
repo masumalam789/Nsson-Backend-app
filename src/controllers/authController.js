@@ -471,8 +471,11 @@ exports.adminForgotPassword = async (req, res) => {
     user.resetPasswordExpires = Date.now() + RESET_TOKEN_EXPIRY_MS;
     await user.save();
 
+    console.log("------LOGGING BEFORE DEPLOYMENT-0---")
     const result = await EmailService.sendForgotPasswordEmail(user, rawToken);
 
+    console.log("------LOGGING AFTER DEPLOYMENT-1---")
+    
     if (!result.success) {
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
