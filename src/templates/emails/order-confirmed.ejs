@@ -1,86 +1,26 @@
-<h2 style="margin-top:0;color:#111827;">
-  🎉 Payment Successful & Order Confirmed
-</h2>
+<h2 style="margin:0 0 20px 0; font-size:20px; color:#111827;">Order Confirmed 🎉</h2>
+<p>Dear <strong><%= customerName %></strong>,</p>
+<p>Thank you for choosing NSSON Auto Parts. Your payment was successful and your order has been confirmed.</p>
 
-<p>
-  Dear <strong><%= customerName %></strong>,
-</p>
-
-<p>
-  Thank you for choosing NSSON Auto Parts.
-</p>
-
-<p>
-  We are pleased to inform you that your payment has been successfully received and your order has been confirmed.
-</p>
-
-<div
-  style="
-    background:#ecfdf5;
-    border-left:4px solid #10b981;
-    padding:20px;
-    border-radius:8px;
-    margin:25px 0;
-  "
->
-  <p style="margin:0 0 10px 0;">
-    <strong>Order Number:</strong>
-    #<%= orderNumber %>
-  </p>
-
-  <p style="margin:0 0 10px 0;">
-    <strong>Payment Status:</strong>
-    Successful
-  </p>
-
-  <p style="margin:0 0 10px 0;">
-    <strong>Amount Paid:</strong>
-    ₹<%= totalAmount %>
-  </p>
-
-  <p style="margin:0;">
-    <strong>Payment Method:</strong>
-    <%= paymentMethod %>
-  </p>
+<div style="background:#f0fdf4; border-left:4px solid #10b981; padding:16px 20px; border-radius:6px; margin:24px 0;">
+  <table cellpadding="0" cellspacing="0" width="100%" style="font-size:14px;">
+    <tr><td style="padding:4px 0; color:#374151;"><strong>Order Number</strong></td><td style="padding:4px 0;">#<%= orderNumber %></td></tr>
+    <tr><td style="padding:4px 0; color:#374151;"><strong>Payment Status</strong></td><td style="padding:4px 0; color:#10b981; font-weight:600;">Successful</td></tr>
+    <tr><td style="padding:4px 0; color:#374151;"><strong>Amount Paid</strong></td><td style="padding:4px 0;">₹<%= totalAmount %></td></tr>
+    <tr><td style="padding:4px 0; color:#374151;"><strong>Payment Method</strong></td><td style="padding:4px 0;"><%= paymentMethod %></td></tr>
+  </table>
 </div>
 
-<p>
-  Our team has started processing your order and it will be packed and dispatched shortly.
-</p>
+<p>Our team has started processing your order. Once dispatched, you will receive a separate email with tracking details.</p>
 
-<p>
-  Once your order has been shipped, we will send you another email containing tracking information and delivery updates.
-</p>
-
-<div
-  style="
-    background:#f9fafb;
-    border:1px solid #e5e7eb;
-    padding:20px;
-    border-radius:8px;
-    margin-top:25px;
-  "
->
-  <strong>What Happens Next?</strong>
-
-  <ul style="padding-left:20px;">
-    <li>Order Processing</li>
-    <li>Quality Inspection</li>
-    <li>Packaging & Dispatch</li>
-    <li>Shipment Tracking Shared</li>
-    <li>Delivery To Your Address</li>
-  </ul>
+<div style="background:#f8fafc; border:1px solid #e2e8f0; padding:16px 20px; border-radius:6px; margin-top:20px; font-size:13px;">
+  <strong style="display:block; margin-bottom:10px;">What happens next?</strong>
+  <table cellpadding="0" cellspacing="0">
+    <tr><td style="padding:3px 0;">✅&nbsp;</td><td>Order Processing</td></tr>
+    <tr><td style="padding:3px 0;">📦&nbsp;</td><td>Quality Inspection & Packaging</td></tr>
+    <tr><td style="padding:3px 0;">🚚&nbsp;</td><td>Dispatch & Tracking Info Shared</td></tr>
+    <tr><td style="padding:3px 0;">🏠&nbsp;</td><td>Delivery to Your Address</td></tr>
+  </table>
 </div>
 
-<p style="margin-top:25px;">
-  We appreciate your trust in NSSON Auto Parts and look forward to serving you again.
-</p>
-
-<p>
-  Thank you for shopping with us.
-</p>
-
-<p>
-  Warm Regards,<br />
-  <strong>NSSON Auto Parts Team</strong>
-</p>
+<p style="margin-top:24px; margin-bottom:0;">Warm Regards,<br /><strong>NSSON Auto Parts Team</strong></p>

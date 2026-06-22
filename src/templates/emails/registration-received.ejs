@@ -1,45 +1,11 @@
-<!DOCTYPE html>
-<html>
-  <body style="margin: 0; background: #f4f6f8; font-family: Arial, sans-serif">
-    <div
-      style="
-        max-width: 650px;
-        margin: 40px auto;
-        background: #fff;
-        padding: 40px;
-        border-radius: 12px;
-      "
-    >
-      <img
-        src="<%= logoUrl %>"
-        width="160"
-        style="display: block; margin: auto auto 25px auto"
-      />
+<h2 style="margin:0 0 20px 0; font-size:20px; color:#1d4ed8;">Registration Received 🎉</h2>
+<p>Dear <strong><%= firstName %></strong>,</p>
+<p>Thank you for registering with NSSON Auto Parts<% if (shopName) { %> as <strong><%= shopName %></strong><% } %>.</p>
+<p>Your retailer registration has been successfully received and is currently under review by our verification team.</p>
 
-      <h2>Registration Received</h2>
+<div style="background:#eff6ff; border-left:4px solid #2563eb; padding:16px 20px; border-radius:6px; margin:24px 0;">
+  <p style="margin:0 0 6px 0; font-size:14px;"><strong>Status:</strong> Under Review</p>
+  <p style="margin:0; font-size:14px; color:#374151;">You will receive an email notification once the review is complete, typically within 1–2 business days.</p>
+</div>
 
-      <p>Dear <strong><%= firstName %></strong>,</p>
-
-      <p>Thank you for registering with NSSON Auto Parts.</p>
-
-      <p>Your retailer registration request has been successfully received.</p>
-
-      <p>
-        Our verification team is currently reviewing your details. You will
-        receive another email once the review process is completed.
-      </p>
-
-      <div
-        style="
-          background: #eff6ff;
-          padding: 20px;
-          border-left: 4px solid #2563eb;
-          border-radius: 6px;
-          margin-top: 25px;
-        "
-      >
-        Status: Under Review
-      </div>
-    </div>
-  </body>
-</html>
+<p style="margin-bottom:0;">Regards,<br /><strong>Team NSSON Auto Parts</strong></p>
