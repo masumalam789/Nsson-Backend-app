@@ -7,6 +7,7 @@ const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
   secure: false,
+  family: 4,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD,
@@ -17,7 +18,9 @@ const transporter = nodemailer.createTransport({
 transporter.verify((error) => {
   if (error) {
     console.error("❌ SMTP connection FAILED:", error.message);
-    console.error("   Check EMAIL_USER, EMAIL_PASSWORD env vars and that port 587 is not blocked by your hosting provider.");
+    console.error(
+      "   Check EMAIL_USER, EMAIL_PASSWORD env vars and that port 587 is not blocked by your hosting provider.",
+    );
   } else {
     console.log("✅ SMTP connection verified — email service ready");
   }
@@ -97,9 +100,8 @@ class EmailService {
   }
 
   static async sendForgotPasswordEmail(user, resetToken) {
-
-    console.log("-----USER----", user)
-    console.log("-----RESET----", resetToken)
+    console.log("-----USER----", user);
+    console.log("-----RESET----", resetToken);
     return this.sendMail({
       to: user.email,
       subject: "Reset Your Password",
