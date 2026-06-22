@@ -506,7 +506,18 @@ exports.userForgotPassword = async (req, res) => {
       return res.status(400).json({ error: "Email is required" });
     }
 
+    const genericResponse = {
+      success: true,
+      message: "If an account with that email exists, a reset link has been sent.",
+    };
+
     const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Return generic response if user not found (prevents email enumeration)
+    if (!user) {
+      return res.status(200).json(genericResponse);
+    }
+
     const rawToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = hashToken(rawToken);
 
@@ -514,7 +525,8 @@ exports.userForgotPassword = async (req, res) => {
     user.resetPasswordExpires = Date.now() + RESET_TOKEN_EXPIRY_MS;
     await user.save();
 
-    const result = await EmailService.userForgotPasswordEmail(user, rawToken);
+    // ✅ Fixed: was incorrectly calling non-existent userForgotPasswordEmail
+    const result = await EmailService.sendForgotPasswordEmail(user, rawToken);
 
     if (!result.success) {
       user.resetPasswordToken = undefined;
@@ -529,9 +541,7 @@ exports.userForgotPassword = async (req, res) => {
       });
     }
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Reset email send successfully" });
+    return res.status(200).json(genericResponse);
   } catch (error) {
     console.error("[Auth] forgotPassword error:", error);
     return res

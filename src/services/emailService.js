@@ -13,6 +13,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ✅ Verify SMTP connection on startup so production logs immediately show if it's broken
+transporter.verify((error) => {
+  if (error) {
+    console.error("❌ SMTP connection FAILED:", error.message);
+    console.error("   Check EMAIL_USER, EMAIL_PASSWORD env vars and that port 587 is not blocked by your hosting provider.");
+  } else {
+    console.log("✅ SMTP connection verified — email service ready");
+  }
+});
+
 class EmailService {
   static async sendMail({ to, subject, template, data = {} }) {
     try {
