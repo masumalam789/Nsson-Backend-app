@@ -63,6 +63,23 @@ const orderSchema = new mongoose.Schema({
     enum: ['user', 'admin', 'system', null],
     default: null
   },
+  couponCode: {
+    type: String,
+    default: null
+  },
+  couponId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Coupon',
+    default: null
+  },
+  discountAmount: {
+    type: Number,
+    default: 0
+  },
+  originalAmountBeforeDiscount: {
+    type: Number,
+    default: 0
+  },
   orderDate: {
     type: Date,
     default: Date.now

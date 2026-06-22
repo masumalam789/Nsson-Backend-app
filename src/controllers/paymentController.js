@@ -15,7 +15,7 @@ const EmailService = require("../services/emailService");
 // create-order + createRazorpayOrder flow.
 exports.initiateRazorpay = async (req, res) => {
   try {
-    const { shippingAddressId, shippingAddress } = req.body;
+    const { shippingAddressId, shippingAddress, couponCode } = req.body;
 
     if (!shippingAddressId && !shippingAddress) {
       return res.status(400).json({
@@ -28,6 +28,7 @@ exports.initiateRazorpay = async (req, res) => {
       userId: req.user._id,
       shippingAddressId,
       shippingAddress,
+      couponCode,
     });
 
     return res.status(200).json({

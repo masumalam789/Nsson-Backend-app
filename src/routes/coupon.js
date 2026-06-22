@@ -3,11 +3,13 @@
 const express = require('express');
 const router  = express.Router();
 
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
-const { createCoupon } = require('../controllers/couponController');
+const { authMiddleware } = require('../middleware/auth');
+const { getAvailableCoupons, applyCoupon, getMyAssignedCoupons } = require('../controllers/couponController');
 
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-router.post  ('/', authMiddleware, createCoupon);
+// ─── Customer Routes ──────────────────────────────────────────────────────────
+router.get   ('/',      authMiddleware, getAvailableCoupons);
+router.get   ('/mine',  authMiddleware, getMyAssignedCoupons);
+router.post  ('/apply', authMiddleware, applyCoupon);
 
 module.exports = router;

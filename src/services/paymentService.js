@@ -7,6 +7,8 @@ const Payment = require("../models/Payment");
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
+const Coupon = require("../models/Coupon");
+const couponService = require("./couponService");
 
 const PAYMENT_WINDOW_MS = 3 * 60 * 1000; // 3 minutes
 
@@ -17,11 +19,11 @@ class PaymentService {
    *   1. Validates cart & stock
    *   2. Creates order (status: awaiting_payment)
    *   3. Reserves stock (deducts immediately)
-   *   4. Creates Razorpay order
+   *   4. Creates Razorpay order (with coupon-discounted amount if provided)
    *   5. Creates Payment record with 3-min expiry
    *   6. Returns Razorpay params for SDK
    */
-  static async initiateRazorpay({ userId, shippingAddressId, shippingAddress }) {
+  static async initiateRazorpay({ userId, shippingAddressId, shippingAddress, couponCode }) {
     if (!shippingAddressId && !shippingAddress) {
       throw new Error("Either shippingAddressId or shippingAddress is required");
     }
@@ -56,8 +58,22 @@ class PaymentService {
       });
     }
 
-    const total = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
+    const subtotal = orderItems.reduce((s, i) => s + i.price * i.quantity, 0);
     const expiresAt = new Date(Date.now() + PAYMENT_WINDOW_MS);
+
+    // ── Optional coupon discount ─────────────────────────────────────────────
+    let finalTotal = subtotal;
+    let discountAmount = 0;
+    let couponId = null;
+    let appliedCouponCode = null;
+
+    if (couponCode && couponCode.trim()) {
+      const result = await couponService.validateAndCalculate(couponCode, subtotal, userId);
+      discountAmount = result.discountAmount;
+      finalTotal = result.finalAmount;
+      couponId = result.coupon._id;
+      appliedCouponCode = result.coupon.code;
+    }
 
     // 3. Create order with awaiting_payment status
     // shippingAddress field accepts either an ObjectId ref or an inline object
@@ -66,11 +82,20 @@ class PaymentService {
       items: orderItems,
       shippingAddress: shippingAddressId || shippingAddress,
       paymentMethod: "razorpay_upi",
-      total,
+      total: finalTotal,
+      originalAmountBeforeDiscount: subtotal,
+      discountAmount,
+      couponCode: appliedCouponCode,
+      couponId,
       status: "awaiting_payment",
       paymentStatus: "UNPAID",
       paymentExpiry: expiresAt,
     });
+
+    // Increment coupon usage after order creation
+    if (couponId) {
+      await Coupon.findByIdAndUpdate(couponId, { $inc: { usedCount: 1 } });
+    }
 
     // 4. Reserve stock (deduct now, restore on expiry if unpaid)
     await Promise.all(
@@ -79,8 +104,8 @@ class PaymentService {
       ),
     );
 
-    // 5. Create Razorpay order
-    const amountInPaise = Math.round(total * 100);
+    // 5. Create Razorpay order (use finalTotal — the coupon-discounted amount)
+    const amountInPaise = Math.round(finalTotal * 100);
     const receipt = `rcpt_${order._id}`;
 
     const razorpayOrder = await razorpay.orders.create({
@@ -130,7 +155,12 @@ class PaymentService {
           currentOrder.cancelledBy = "system";
           await currentOrder.save();
 
-          // 3. Mark payment EXPIRED
+          // 3. Restore coupon usage if applied
+          if (currentOrder.couponId) {
+            await Coupon.findByIdAndUpdate(currentOrder.couponId, { $inc: { usedCount: -1 } });
+          }
+
+          // 4. Mark payment EXPIRED
           await Payment.findOneAndUpdate(
             { orderId: String(currentOrder._id), status: "PENDING" },
             { status: "EXPIRED" }
@@ -386,7 +416,12 @@ class PaymentService {
     order.cancelledBy = "user";
     await order.save();
 
-    // 3. Mark payment CANCELLED
+    // 3. Restore coupon usage if applied
+    if (order.couponId) {
+      await Coupon.findByIdAndUpdate(order.couponId, { $inc: { usedCount: -1 } });
+    }
+
+    // 4. Mark payment CANCELLED
     await Payment.findOneAndUpdate(
       { orderId: String(order._id), status: "PENDING" },
       { status: "CANCELLED" }

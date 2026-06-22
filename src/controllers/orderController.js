@@ -4,8 +4,10 @@ const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const Address = require("../models/Address");
+const Coupon = require("../models/Coupon");
 const notificationService = require("../services/notificationService");
 const { sendToUser } = require("../utils/appPushNotification");
+const couponService = require("../services/couponService");
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 const calcTotal = (items) =>
@@ -54,11 +56,13 @@ class OrderError extends Error {
 
 /**
  * 1. Create the order from the user's cart.
+ * @param {string} couponCode - Optional coupon code to apply
  */
 async function createOrderFromCart({
   userId,
   shippingAddressId,
   paymentMethod,
+  couponCode,
 }) {
   const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
@@ -103,17 +107,44 @@ async function createOrderFromCart({
     });
   }
 
-  const total = calcTotal(orderItems);
+  const subtotal = calcTotal(orderItems);
+
+  // ── Coupon validation & discount calculation ──────────────────────────────
+  let finalTotal = subtotal;
+  let discountAmount = 0;
+  let couponId = null;
+  let appliedCouponCode = null;
+
+  if (couponCode && couponCode.trim()) {
+    try {
+      const result = await couponService.validateAndCalculate(couponCode, subtotal, userId);
+      discountAmount = result.discountAmount;
+      finalTotal = result.finalAmount;
+      couponId = result.coupon._id;
+      appliedCouponCode = result.coupon.code;
+    } catch (couponErr) {
+      throw new OrderError(400, couponErr.message || 'Invalid coupon code');
+    }
+  }
 
   const order = await Order.create({
     userId: userId,
     items: orderItems,
     shippingAddress: shippingAddressId,
     paymentMethod: normalizedPaymentMethod,
-    total,
+    total: finalTotal,
+    originalAmountBeforeDiscount: subtotal,
+    discountAmount,
+    couponCode: appliedCouponCode,
+    couponId,
     status: "pending",
     paymentStatus: "UNPAID",
   });
+
+  // Increment coupon usage after successful order creation
+  if (couponId) {
+    await Coupon.findByIdAndUpdate(couponId, { $inc: { usedCount: 1 } });
+  }
 
   try {
     if (normalizedPaymentMethod !== "razorpay_upi") {
@@ -175,7 +206,7 @@ async function restoreStockForOrder(order) {
 
 exports.createOrder = async (req, res) => {
   try {
-    const { shippingAddressId, paymentMethod } = req.body;
+    const { shippingAddressId, paymentMethod, couponCode } = req.body;
 
     const normalizedMethod = normalizePaymentMethod(paymentMethod);
 
@@ -196,6 +227,7 @@ exports.createOrder = async (req, res) => {
       userId: req.user._id,
       shippingAddressId,
       paymentMethod,
+      couponCode,
     });
 
     await reduceStockForOrder(order);
@@ -325,6 +357,11 @@ exports.cancelOrder = async (req, res) => {
       ),
     );
 
+    // Restore coupon usage if a coupon was applied
+    if (order.couponId) {
+      await Coupon.findByIdAndUpdate(order.couponId, { $inc: { usedCount: -1 } });
+    }
+
     return res.status(200).json({
       success: true,
       message: "Order cancelled",
@@ -369,10 +406,17 @@ exports.updateOrderStatus = async (req, res) => {
         .json({ success: false, message: "Order not found" });
     }
 
+    const previousStatus = order.status;
+
     if (status) order.status = status;
     if (paymentStatus) order.paymentStatus = paymentStatus.toUpperCase();
 
     await order.save();
+
+    // Restore coupon usage if order is being cancelled by admin and was not previously cancelled
+    if (status === 'cancelled' && previousStatus !== 'cancelled' && order.couponId) {
+      await Coupon.findByIdAndUpdate(order.couponId, { $inc: { usedCount: -1 } });
+    }
 
     if (status) {
       const statusMessages = {
