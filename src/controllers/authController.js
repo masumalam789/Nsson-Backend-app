@@ -56,7 +56,6 @@ function validatePhone(phone) {
  * Customers must be approved before they can log in.
  */
 exports.unifiedLogin = async (req, res) => {
-
   try {
     const { identifier, email, password } = req.body;
 
@@ -460,6 +459,7 @@ exports.adminForgotPassword = async (req, res) => {
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
+    console.log(user);
     if (!user) {
       return res.status(200).json(genericResponse);
     }
@@ -471,11 +471,11 @@ exports.adminForgotPassword = async (req, res) => {
     user.resetPasswordExpires = Date.now() + RESET_TOKEN_EXPIRY_MS;
     await user.save();
 
-    console.log("------LOGGING BEFORE DEPLOYMENT-0---")
+    console.log("------LOGGING BEFORE DEPLOYMENT-0---");
     const result = await EmailService.sendForgotPasswordEmail(user, rawToken);
 
-    console.log("------LOGGING AFTER DEPLOYMENT-1---")
-    
+    console.log("------LOGGING AFTER DEPLOYMENT-1---");
+
     if (!result.success) {
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
@@ -508,7 +508,8 @@ exports.userForgotPassword = async (req, res) => {
 
     const genericResponse = {
       success: true,
-      message: "If an account with that email exists, a reset link has been sent.",
+      message:
+        "If an account with that email exists, a reset link has been sent.",
     };
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });

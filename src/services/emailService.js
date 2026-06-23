@@ -2,6 +2,7 @@
 const { BrevoClient, BrevoEnvironment } = require("@getbrevo/brevo");
 const renderEmail = require("./renderEmail");
 
+console.log(process.env.BREVO_API_KEY, "BREVO_API_KEY");
 const brevo = new BrevoClient({
   apiKey: process.env.BREVO_API_KEY,
   environment: BrevoEnvironment.Production,
@@ -14,7 +15,7 @@ class EmailService {
         ...data,
         companyName: "NSSON Auto Parts",
         supportPhone: "+91 97780 39977",
-        supportEmail: "bpawan277@gmail.com",
+        supportEmail: "nssonautoparts@gmail.com",
         currentYear: new Date().getFullYear(),
         logoUrl:
           process.env.EMAIL_LOGO_URL ||
@@ -22,7 +23,7 @@ class EmailService {
       });
 
       const result = await brevo.transactionalEmails.sendTransacEmail({
-        sender: { email: "bpawan277@gmail.com", name: "NSSON Auto Parts" },
+        sender: { email: "nssonautoparts@gmail.com", name: "Nsson Autoparts" },
         to: [{ email: to }],
         subject,
         htmlContent: html,
