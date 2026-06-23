@@ -26,7 +26,7 @@ async function sendApprovalStatusEmail(user, status) {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const { status, role, page = 1, limit = 20 } = req.query;
+    const { status, role, page = 1, limit = 400 } = req.query;
 
     const filter = {};
     if (status) filter.status = status;

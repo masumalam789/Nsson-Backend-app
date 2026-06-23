@@ -24,7 +24,8 @@ const orderSchema = new mongoose.Schema({
   // Accepts either a saved Address ObjectId OR an inline address object
   // (when user enters a new address at checkout without saving it)
   shippingAddress: {
-    type: mongoose.Schema.Types.Mixed,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Address",
     required: true
   },
   paymentMethod: {
