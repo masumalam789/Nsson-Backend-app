@@ -68,6 +68,39 @@ exports.markAllNotificationsRead = async (req, res) => {
   }
 };
 
+exports.deleteNotification = async (req, res) => {
+  try {
+    const result = await Notification.deleteOne({
+      _id: req.params.id,
+      userId: req.user._id,
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, error: 'Notification not found' });
+    }
+
+    return res.status(200).json({ success: true, message: 'Notification deleted' });
+  } catch (error) {
+    console.error('[Notification] deleteNotification error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to delete notification' });
+  }
+};
+
+exports.clearNotifications = async (req, res) => {
+  try {
+    const result = await Notification.deleteMany({ userId: req.user._id });
+
+    return res.status(200).json({
+      success: true,
+      message: 'All notifications deleted',
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error('[Notification] clearNotifications error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to delete notifications' });
+  }
+};
+
 exports.registerDeviceToken = async (req, res) => {
   try {
     const token = String(req.body.token || '').trim();

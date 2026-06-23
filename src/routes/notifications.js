@@ -12,6 +12,8 @@ router.post('/register-token', authMiddleware, notificationController.registerDe
 router.post('/unregister-token', authMiddleware, notificationController.unregisterDeviceToken);
 router.patch('/read-all', authMiddleware, notificationController.markAllNotificationsRead);
 router.patch('/:id/read', authMiddleware, notificationController.markNotificationRead);
+router.delete('/:id', authMiddleware, notificationController.deleteNotification);
+router.delete('/', authMiddleware, notificationController.clearNotifications);
 
 router.post('/broadcast', adminMiddleware, notificationController.broadcastAnnouncement);
 

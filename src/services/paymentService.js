@@ -23,9 +23,17 @@ class PaymentService {
    *   5. Creates Payment record with 3-min expiry
    *   6. Returns Razorpay params for SDK
    */
-  static async initiateRazorpay({ userId, shippingAddressId, shippingAddress, couponCode }) {
+  static async initiateRazorpay({
+    userId,
+    shippingAddressId,
+    shippingAddress,
+    couponCode,
+    couponId,
+  }) {
     if (!shippingAddressId && !shippingAddress) {
-      throw new Error("Either shippingAddressId or shippingAddress is required");
+      throw new Error(
+        "Either shippingAddressId or shippingAddress is required",
+      );
     }
 
     // 1. Validate cart
@@ -64,14 +72,24 @@ class PaymentService {
     // ── Optional coupon discount ─────────────────────────────────────────────
     let finalTotal = subtotal;
     let discountAmount = 0;
-    let couponId = null;
-    let appliedCouponCode = null;
+    let resolvedCouponId = couponId;
+    let appliedCouponCode = couponCode;
 
-    if (couponCode && couponCode.trim()) {
-      const result = await couponService.validateAndCalculate(couponCode, subtotal, userId);
+    if (couponId && (!appliedCouponCode || !appliedCouponCode.trim())) {
+      const couponObj = await Coupon.findById(couponId);
+      if (couponObj) {
+        appliedCouponCode = couponObj.code;
+      }
+    }
+    if (appliedCouponCode && appliedCouponCode.trim()) {
+      const result = await couponService.validateAndCalculate(
+        appliedCouponCode,
+        subtotal,
+        userId,
+      );
       discountAmount = result.discountAmount;
       finalTotal = result.finalAmount;
-      couponId = result.coupon._id;
+      resolvedCouponId = result.coupon._id;
       appliedCouponCode = result.coupon.code;
     }
 
@@ -86,15 +104,17 @@ class PaymentService {
       originalAmountBeforeDiscount: subtotal,
       discountAmount,
       couponCode: appliedCouponCode,
-      couponId,
+      couponId: resolvedCouponId,
       status: "awaiting_payment",
       paymentStatus: "UNPAID",
       paymentExpiry: expiresAt,
     });
 
     // Increment coupon usage after order creation
-    if (couponId) {
-      await Coupon.findByIdAndUpdate(couponId, { $inc: { usedCount: 1 } });
+    if (resolvedCouponId) {
+      await Coupon.findByIdAndUpdate(resolvedCouponId, {
+        $inc: { usedCount: 1 },
+      });
     }
 
     // 4. Reserve stock (deduct now, restore on expiry if unpaid)
@@ -136,42 +156,55 @@ class PaymentService {
 
     // 7. Schedule dynamic check exactly 3 minutes (180000 ms) later to release stock & cancel order if unpaid.
     // This runs exactly once, in-memory, avoiding continuous cron database polling.
-    setTimeout(async () => {
-      try {
-        const currentOrder = await Order.findById(order._id);
-        if (currentOrder && currentOrder.status === "awaiting_payment") {
-          // 1. Restore stock
-          await Promise.all(
-            currentOrder.items.map(({ productId, quantity }) =>
-              Product.findByIdAndUpdate(productId, { $inc: { stock: quantity } }),
-            ),
-          );
+    setTimeout(
+      async () => {
+        try {
+          const currentOrder = await Order.findById(order._id);
+          if (currentOrder && currentOrder.status === "awaiting_payment") {
+            // 1. Restore stock
+            await Promise.all(
+              currentOrder.items.map(({ productId, quantity }) =>
+                Product.findByIdAndUpdate(productId, {
+                  $inc: { stock: quantity },
+                }),
+              ),
+            );
 
-          // 2. Cancel order
-          currentOrder.status = "cancelled";
-          currentOrder.paymentStatus = "FAILED";
-          currentOrder.cancellationReason = "Payment window expired (3 minutes)";
-          currentOrder.cancelledAt = new Date();
-          currentOrder.cancelledBy = "system";
-          await currentOrder.save();
+            // 2. Cancel order
+            currentOrder.status = "cancelled";
+            currentOrder.paymentStatus = "FAILED";
+            currentOrder.cancellationReason =
+              "Payment window expired (3 minutes)";
+            currentOrder.cancelledAt = new Date();
+            currentOrder.cancelledBy = "system";
+            await currentOrder.save();
 
-          // 3. Restore coupon usage if applied
-          if (currentOrder.couponId) {
-            await Coupon.findByIdAndUpdate(currentOrder.couponId, { $inc: { usedCount: -1 } });
+            // 3. Restore coupon usage if applied
+            if (currentOrder.couponId) {
+              await Coupon.findByIdAndUpdate(currentOrder.couponId, {
+                $inc: { usedCount: -1 },
+              });
+            }
+
+            // 4. Mark payment EXPIRED
+            await Payment.findOneAndUpdate(
+              { orderId: String(currentOrder._id), status: "PENDING" },
+              { status: "EXPIRED" },
+            );
+
+            console.log(
+              `[PaymentTimeout] Auto-expired order ${currentOrder._id} (3 mins passed)`,
+            );
           }
-
-          // 4. Mark payment EXPIRED
-          await Payment.findOneAndUpdate(
-            { orderId: String(currentOrder._id), status: "PENDING" },
-            { status: "EXPIRED" }
+        } catch (err) {
+          console.error(
+            `[PaymentTimeout] Failed to auto-expire order ${order._id}:`,
+            err?.message || err,
           );
-
-          console.log(`[PaymentTimeout] Auto-expired order ${currentOrder._id} (3 mins passed)`);
         }
-      } catch (err) {
-        console.error(`[PaymentTimeout] Failed to auto-expire order ${order._id}:`, err?.message || err);
-      }
-    }, 3 * 60 * 1000);
+      },
+      3 * 60 * 1000,
+    );
 
     return {
       key: process.env.RAZORPAY_KEY_ID,
@@ -302,7 +335,9 @@ class PaymentService {
     }
 
     // Already resolved
-    if (["SUCCESS", "FAILED", "EXPIRED", "CANCELLED"].includes(payment.status)) {
+    if (
+      ["SUCCESS", "FAILED", "EXPIRED", "CANCELLED"].includes(payment.status)
+    ) {
       const order = await Order.findById(appOrderId).select(
         "status paymentStatus",
       );
@@ -418,13 +453,15 @@ class PaymentService {
 
     // 3. Restore coupon usage if applied
     if (order.couponId) {
-      await Coupon.findByIdAndUpdate(order.couponId, { $inc: { usedCount: -1 } });
+      await Coupon.findByIdAndUpdate(order.couponId, {
+        $inc: { usedCount: -1 },
+      });
     }
 
     // 4. Mark payment CANCELLED
     await Payment.findOneAndUpdate(
       { orderId: String(order._id), status: "PENDING" },
-      { status: "CANCELLED" }
+      { status: "CANCELLED" },
     );
 
     return {

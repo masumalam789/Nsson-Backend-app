@@ -113,21 +113,31 @@ async function createOrderFromCart({
   // ── Coupon validation & discount calculation ──────────────────────────────
   let finalTotal = subtotal;
   let discountAmount = 0;
-  let couponId = null;
+  let resolvedCouponId = couponId;
   let appliedCouponCode = null;
 
-  if (couponCode && couponCode.trim()) {
-    try {
-      const result = await couponService.validateAndCalculate(couponCode, subtotal, userId);
-      discountAmount = result.discountAmount;
-      finalTotal = result.finalAmount;
-      couponId = result.coupon._id;
-      appliedCouponCode = result.coupon.code;
-    } catch (couponErr) {
-      throw new OrderError(400, couponErr.message || 'Invalid coupon code');
+  let resolvedCouponCode = couponCode;
+  if (resolvedCouponId && (!resolvedCouponCode || !resolvedCouponCode.trim())) {
+    const couponObj = await Coupon.findById(resolvedCouponId);
+    if (couponObj) {
+      resolvedCouponCode = couponObj.code;
     }
   }
-
+  if (resolvedCouponCode && resolvedCouponCode.trim()) {
+    try {
+      const result = await couponService.validateAndCalculate(
+        resolvedCouponCode,
+        subtotal,
+        userId,
+      );
+      discountAmount = result.discountAmount;
+      finalTotal = result.finalAmount;
+      resolvedCouponId = result.coupon._id;
+      appliedCouponCode = result.coupon.code;
+    } catch (couponErr) {
+      throw new OrderError(400, couponErr.message || "Invalid coupon code");
+    }
+  }
   const order = await Order.create({
     userId: userId,
     items: orderItems,
@@ -137,14 +147,16 @@ async function createOrderFromCart({
     originalAmountBeforeDiscount: subtotal,
     discountAmount,
     couponCode: appliedCouponCode,
-    couponId,
+    couponId: resolvedCouponId,
     status: "pending",
     paymentStatus: "UNPAID",
   });
 
   // Increment coupon usage after successful order creation
-  if (couponId) {
-    await Coupon.findByIdAndUpdate(couponId, { $inc: { usedCount: 1 } });
+  if (resolvedCouponId) {
+    await Coupon.findByIdAndUpdate(resolvedCouponId, {
+      $inc: { usedCount: 1 },
+    });
   }
 
   try {
@@ -207,8 +219,7 @@ async function restoreStockForOrder(order) {
 
 exports.createOrder = async (req, res) => {
   try {
-    const { shippingAddressId, paymentMethod, couponCode } = req.body;
-
+    const { shippingAddressId, paymentMethod, couponCode, couponId } = req.body;
     const normalizedMethod = normalizePaymentMethod(paymentMethod);
 
     // Block Razorpay from this endpoint — must use POST /payments/razorpay/initiate
@@ -228,6 +239,7 @@ exports.createOrder = async (req, res) => {
       userId: req.user._id,
       shippingAddressId,
       paymentMethod,
+      couponId,
       couponCode,
     });
 
@@ -360,7 +372,9 @@ exports.cancelOrder = async (req, res) => {
 
     // Restore coupon usage if a coupon was applied
     if (order.couponId) {
-      await Coupon.findByIdAndUpdate(order.couponId, { $inc: { usedCount: -1 } });
+      await Coupon.findByIdAndUpdate(order.couponId, {
+        $inc: { usedCount: -1 },
+      });
     }
 
     return res.status(200).json({
@@ -400,17 +414,15 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { status, paymentStatus } = req.body;
 
-    const order = await Order.findById(req.params.id)
-      .populate("userId", "firstName lastName email")
-      .populate("items.productId", "name")
-    ;
+    const order = await Order.findById(req.params.id).populate(
+      "userId",
+      "firstName lastName email",
+    );
     if (!order) {
       return res
         .status(404)
         .json({ success: false, message: "Order not found" });
     }
-
-    const product_names = order.items.map((item) => item.name).join(", ");
 
     const previousStatus = order.status;
 
@@ -420,78 +432,53 @@ exports.updateOrderStatus = async (req, res) => {
     await order.save();
 
     // Restore coupon usage if order is being cancelled by admin and was not previously cancelled
-    if (status === 'cancelled' && previousStatus !== 'cancelled' && order.couponId) {
-      await Coupon.findByIdAndUpdate(order.couponId, { $inc: { usedCount: -1 } });
+    if (
+      status === "cancelled" &&
+      previousStatus !== "cancelled" &&
+      order.couponId
+    ) {
+      await Coupon.findByIdAndUpdate(order.couponId, {
+        $inc: { usedCount: -1 },
+      });
     }
 
     if (status) {
       const statusMessages = {
         processing: {
           title: "Order Confirmed",
-          body: `Order ${product_names} is being prepared for dispatch.`,
+          body: `Order #${displayOrderId(order)} is being prepared for dispatch.`,
         },
         shipped: {
           title: "Order Shipped",
-          body: `Order ${product_names} is on the way! Track your delivery.`,
+          body: `Order #${displayOrderId(order)} is on the way! Track your delivery.`,
         },
         delivered: {
           title: "Order Delivered",
-          body: `Order ${product_names} has been delivered. Thank you!`,
+          body: `Order #${displayOrderId(order)} has been delivered. Thank you!`,
         },
         cancelled: {
           title: "Order Cancelled",
-          body: `Order ${product_names} has been cancelled.`,
-        },
-        refunded: {
-          title: "Order Refunded",
-          body: `Order ${product_names} has been refunded.`,
+          body: `Order #${displayOrderId(order)} has been cancelled.`,
         },
       };
 
       const message = statusMessages[status];
       if (message) {
-
-        // await notificationService.notifyUser(
-        //   order.userId,
-        //   {
-        //     title: message.title,
-        //     body: message.body,
-        //     category: "approved",
-        //     data: {
-        //       orderId: order._id,
-        //       status: order.status,
-        //       paymentStatus: order.paymentStatus,
-        //     },
-        //   },
-        //   { createdBy: req.user?._id || null },
-        // );
-        await notificationService.insertNotificationsForUsers(
-          [order.userId],
+        await notificationService.notifyUser(
+          order.userId,
           {
             title: message.title,
             body: message.body,
-            category: "info",
+            category: "approved",
             data: {
               orderId: order._id,
               status: order.status,
               paymentStatus: order.paymentStatus,
             },
           },
+          { createdBy: req.user?._id || null },
         );
-
-        await sendToUser(order.userId._id,{
-          title: message.title,
-          body: message.body,
-          data: {
-            orderId: order._id,
-            products: order.items.map((item) => item.name),
-            status: order.status,
-            paymentStatus: order.paymentStatus,
-          },
-        })
-
-
-        await EmailService.sendOrderStatusUpdateEmail(order.userId, order, product_names);
+        await EmailService.sendOrderStatusUpdateEmail(order.userId, order);
       }
     }
 
