@@ -382,3 +382,30 @@ exports.getAllAddress = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
+exports.updateAdminProfile = async (req, res) => {
+  try {
+    const updates = req.body;
+    const { email, firstName, lastName } = updates;
+    
+    if(!email || !firstName || !lastName)  
+    { return res.status(400).json({success: false, message: "Please provide all the required fields"}) }
+    
+    const user_id = req.user._id;
+    const user = await User.findById(user_id);
+    if(!user) return res.status(404).json({message: "User not found"});
+
+    if(email) user.email = email;
+    if(firstName) user.firstName = firstName;
+    if(lastName) user.lastName = lastName;
+
+    await user.save();
+
+    return res.status(200).json({success: true, message: "Profile updated successfully"})
+
+  } catch (error) {
+    console.error('[Admin ] Update error:', error);
+    return res.status(500).json({ error: 'Failed to update admin' });
+  }
+
+}

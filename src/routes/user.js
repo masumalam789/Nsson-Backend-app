@@ -12,6 +12,7 @@ router.get('/:id',    authMiddleware, adminMiddleware, userController.getUserByI
 router.patch('/:id/approve', authMiddleware, adminMiddleware, userController.approveUser);
 router.patch('/:id/reject',  authMiddleware, adminMiddleware, userController.rejectUser);
 router.patch('/:id/approval', authMiddleware, adminMiddleware, userController.updateUserApproval);
+router.put('/admin/profile', authMiddleware, adminMiddleware, userController.updateAdminProfile);
 router.put('/:id',    authMiddleware, adminMiddleware, userController.updateUser);
 router.delete('/:id', authMiddleware, adminMiddleware, userController.deleteUser);
 
