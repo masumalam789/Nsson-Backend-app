@@ -95,7 +95,7 @@ class EmailService {
     });
   }
 
-static async sendOrderStatusUpdateEmail(user, order) {
+static async sendOrderStatusUpdateEmail(user, order, productNames) {
   // ['awaiting_payment', 'pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
     const statusSubjects = {
       awaiting_payment: "Your Order Awaiting Payment",
@@ -118,6 +118,7 @@ static async sendOrderStatusUpdateEmail(user, order) {
       data: {
         firstName: user.firstName,
         orderNumber: order.orderNumber || order._id,
+        orderName: productNames,
         orderStatus: order.status
       },
     });

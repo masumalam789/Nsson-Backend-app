@@ -69,6 +69,32 @@ async function sendPushToTokens(tokens, payload) {
   }
 }
 
+
+exports.insertNotificationsForUsers = async (userIds, payload, options = {}) => {
+  const users = await User.find({
+    _id: { $in: userIds },
+  }).select("_id deviceTokens status role");
+
+  const activeUsers = users.filter(
+    (user) => user.role === "customer" && user.status === "approved",
+  );
+
+  if (activeUsers.length === 0) {
+    return [];
+  }
+
+  return Notification.insertMany(
+    activeUsers.map((user) => ({
+      userId: user._id,
+      title: payload.title,
+      body: payload.body,
+      category: payload.category,
+      data: payload.data || {},
+      createdBy: options.createdBy || null,
+    })),
+  );
+}
+
 async function createRecordsForUsers(userIds, payload, options = {}) {
   const users = await User.find({
     _id: { $in: userIds },
