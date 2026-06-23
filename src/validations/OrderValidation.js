@@ -16,7 +16,7 @@ const validate = (req, res, next) => {
 };
 
 // ─── Allowed enums (keep in sync with your Order model) ──────────────────────
-const ORDER_STATUSES   = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+const ORDER_STATUSES   = ['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 const PAYMENT_STATUSES = ['unpaid', 'pending', 'paid', 'failed', 'refunded'];
 const PAYMENT_METHODS  = ['cash_on_delivery', 'razorpay_upi'];
 

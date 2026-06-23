@@ -93,6 +93,34 @@ class EmailService {
       },
     });
   }
+
+static async sendOrderStatusUpdateEmail(user, order) {
+  // ['awaiting_payment', 'pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
+    const statusSubjects = {
+      awaiting_payment: "Your Order Awaiting Payment",
+      pending: "Your Order Pending",
+      processing: "Your Order is Being Processed",
+      shipped: "Your Order Has Been Shipped",
+      out_for_delivery: "Your Order is Out for Delivery",
+      delivered: "Your Order Has Been Delivered",
+      cancelled: "Your Order Has Been Cancelled",
+      refunded: "Your Order Has Been Refunded",
+    };
+
+    const subject =
+      statusSubjects[order.status] || "Update on Your Order";
+
+    return this.sendMail({
+      to: user.email,
+      subject: `${subject} - NSSON Auto Parts`,
+      template: "order-status-update",
+      data: {
+        firstName: user.firstName,
+        orderNumber: order.orderNumber || order._id,
+        orderStatus: order.status
+      },
+    });
+  }
 }
 
 module.exports = EmailService;

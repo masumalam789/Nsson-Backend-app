@@ -8,6 +8,7 @@ const Coupon = require("../models/Coupon");
 const notificationService = require("../services/notificationService");
 const { sendToUser } = require("../utils/appPushNotification");
 const couponService = require("../services/couponService");
+const EmailService = require("../services/emailService");
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 const calcTotal = (items) =>
@@ -399,7 +400,9 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { status, paymentStatus } = req.body;
 
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id)
+      .populate("userId", "firstName lastName email")
+    ;
     if (!order) {
       return res
         .status(404)
@@ -454,6 +457,7 @@ exports.updateOrderStatus = async (req, res) => {
           },
           { createdBy: req.user?._id || null },
         );
+        await EmailService.sendOrderStatusUpdateEmail(order.userId, order);
       }
     }
 
