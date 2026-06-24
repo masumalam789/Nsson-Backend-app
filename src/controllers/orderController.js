@@ -5,8 +5,7 @@ const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const Address = require("../models/Address");
 const Coupon = require("../models/Coupon");
-const notificationService = require("../services/notificationService");
-const { sendToUser } = require("../utils/appPushNotification");
+const { sendToUser, insertNotificationsForUsers } = require("../utils/appPushNotification");
 const couponService = require("../services/couponService");
 const EmailService = require("../services/emailService");
 
@@ -414,15 +413,17 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { status, paymentStatus } = req.body;
 
-    const order = await Order.findById(req.params.id).populate(
-      "userId",
-      "firstName lastName email",
-    );
+    const order = await Order.findById(req.params.id)
+      .populate("userId", "firstName lastName email")
+      .populate("items.productId", "name")
+    ;
     if (!order) {
       return res
         .status(404)
         .json({ success: false, message: "Order not found" });
     }
+
+    const product_names = order.items.map((item) => item.name).join(", ");
 
     const previousStatus = order.status;
 
@@ -432,53 +433,78 @@ exports.updateOrderStatus = async (req, res) => {
     await order.save();
 
     // Restore coupon usage if order is being cancelled by admin and was not previously cancelled
-    if (
-      status === "cancelled" &&
-      previousStatus !== "cancelled" &&
-      order.couponId
-    ) {
-      await Coupon.findByIdAndUpdate(order.couponId, {
-        $inc: { usedCount: -1 },
-      });
+    if (status === 'cancelled' && previousStatus !== 'cancelled' && order.couponId) {
+      await Coupon.findByIdAndUpdate(order.couponId, { $inc: { usedCount: -1 } });
     }
 
     if (status) {
       const statusMessages = {
         processing: {
           title: "Order Confirmed",
-          body: `Order #${displayOrderId(order)} is being prepared for dispatch.`,
+          body: `Order ${product_names} is being prepared for dispatch.`,
         },
         shipped: {
           title: "Order Shipped",
-          body: `Order #${displayOrderId(order)} is on the way! Track your delivery.`,
+          body: `Order ${product_names} is on the way! Track your delivery.`,
         },
         delivered: {
           title: "Order Delivered",
-          body: `Order #${displayOrderId(order)} has been delivered. Thank you!`,
+          body: `Order ${product_names} has been delivered. Thank you!`,
         },
         cancelled: {
           title: "Order Cancelled",
-          body: `Order #${displayOrderId(order)} has been cancelled.`,
+          body: `Order ${product_names} has been cancelled.`,
+        },
+        refunded: {
+          title: "Order Refunded",
+          body: `Order ${product_names} has been refunded.`,
         },
       };
 
       const message = statusMessages[status];
       if (message) {
-        await notificationService.notifyUser(
-          order.userId,
+
+        // await notificationService.notifyUser(
+        //   order.userId,
+        //   {
+        //     title: message.title,
+        //     body: message.body,
+        //     category: "approved",
+        //     data: {
+        //       orderId: order._id,
+        //       status: order.status,
+        //       paymentStatus: order.paymentStatus,
+        //     },
+        //   },
+        //   { createdBy: req.user?._id || null },
+        // );
+        await insertNotificationsForUsers(
+          [order.userId],
           {
             title: message.title,
             body: message.body,
-            category: "approved",
+            category: "info",
             data: {
               orderId: order._id,
               status: order.status,
               paymentStatus: order.paymentStatus,
             },
           },
-          { createdBy: req.user?._id || null },
         );
-        await EmailService.sendOrderStatusUpdateEmail(order.userId, order);
+
+        await sendToUser(order.userId._id,{
+          title: message.title,
+          body: message.body,
+          data: {
+            orderId: order._id,
+            products: order.items.map((item) => item.name),
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+          },
+        })
+
+
+        await EmailService.sendOrderStatusUpdateEmail(order.userId, order, product_names);
       }
     }
 
@@ -492,6 +518,7 @@ exports.updateOrderStatus = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
 
 module.exports.createOrderFromCart = createOrderFromCart;
 module.exports.reduceStockForOrder = reduceStockForOrder;
