@@ -63,6 +63,7 @@ async function createOrderFromCart({
   shippingAddressId,
   paymentMethod,
   couponCode,
+  couponId
 }) {
   const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
@@ -464,44 +465,6 @@ exports.updateOrderStatus = async (req, res) => {
       const message = statusMessages[status];
       if (message) {
 
-        // await notificationService.notifyUser(
-        //   order.userId,
-        //   {
-        //     title: message.title,
-        //     body: message.body,
-        //     category: "approved",
-        //     data: {
-        //       orderId: order._id,
-        //       status: order.status,
-        //       paymentStatus: order.paymentStatus,
-        //     },
-        //   },
-        //   { createdBy: req.user?._id || null },
-        // );
-        // await insertNotificationsForUsers(
-        //   [order.userId],
-        //   {
-        //     title: message.title,
-        //     body: message.body,
-        //     category: "info",
-        //     data: {
-        //       orderId: order._id,
-        //       status: order.status,
-        //       paymentStatus: order.paymentStatus,
-        //     },
-        //   },
-        // );
-
-        // await sendToUser(order.userId._id,{
-        //   title: message.title,
-        //   body: message.body,
-        //   data: {
-        //     orderId: order._id,
-        //     products: order.items.map((item) => item.name),
-        //     status: order.status,
-        //     paymentStatus: order.paymentStatus,
-        //   },
-        // })
         const result = await sendNotification(
           [order.userId],
           {

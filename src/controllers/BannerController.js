@@ -1,6 +1,5 @@
 const Banner = require("../models/banner");
 const { deleteFile, buildUrl } = require("../config/multer");
-const notificationService = require("../services/notificationService");
 
 // const { sendToDevice } = require("../utils/appPushNotification");
 
@@ -205,19 +204,6 @@ const updateBanner = async (req, res) => {
       { $set: data },
       { new: true, runValidators: true },
     );
-
-    // await notificationService.notifyAllCustomers(
-    //   {
-    //     title: "New Arrival",
-    //     body: `Fresh stock available in ${resolveBannerCategory(updated)}.`,
-    //     category: "info",
-    //     data: {
-    //       bannerId: updated._id,
-    //       category: resolveBannerCategory(updated),
-    //     },
-    //   },
-    //   { createdBy: req.user?._id || null },
-    // );
 
     res.json({
       success: true,

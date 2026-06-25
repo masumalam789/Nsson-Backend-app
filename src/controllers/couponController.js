@@ -4,7 +4,7 @@ const Coupon = require("../models/Coupon");
 const UserCoupon = require("../models/UserCoupon");
 const User = require("../models/User");
 const couponService = require("../services/couponService");
-const notificationService = require("../services/notificationService");
+const { sendNotification } = require("../utils/appPushNotification");
 
 // ─── ADMIN CONTROLLERS ────────────────────────────────────────────────────────
 
@@ -131,10 +131,38 @@ exports.createCoupon = async (req, res) => {
             couponCode: coupon.code,
           },
         };
-        await notificationService.notifyUsers(validUserIds, payload, {
-          createdBy: req.user?._id,
-        });
+        await sendNotification(
+          validUserIds,
+          payload,
+          {},
+          true,
+          {},
+          true
+        )
       }
+    }else{
+        const payload = {
+          title: "🎁 Exclusive Free Coupon Added!",
+          body: `You have been gifted an exclusive coupon "${coupon.code}". Use it to get ${
+            coupon.discountType === "percentage"
+              ? `${coupon.discountValue}%`
+              : `₹${coupon.discountValue}`
+          } off!`,
+          category: "discount",
+          data: {
+            couponId: coupon._id.toString(),
+            couponCode: coupon.code,
+          },
+        };
+
+        await sendNotification(
+          [],
+          payload,
+          {},
+          true,
+          {},
+          true
+        )
     }
 
     return res.status(201).json({
@@ -321,11 +349,41 @@ exports.updateCoupon = async (req, res) => {
               couponCode: coupon.code,
             },
           };
-          await notificationService.notifyUsers(validUserIds, payload, {
-            createdBy: req.user?._id,
-          });
+
+          await sendNotification(validUserIds, payload,
+            {
+              createdBy: req.user?._id,
+            },
+            true,
+            {},
+            true
+          )
         }
       }
+    }else{
+          const payload = {
+            title: "🎁 Exclusive Free Coupon Added!",
+            body: `You have been gifted an exclusive coupon "${coupon.code}". Use it to get ${
+              coupon.discountType === "percentage"
+                ? `${coupon.discountValue}%`
+                : `₹${coupon.discountValue}`
+            } off!`,
+            category: "discount",
+            data: {
+              couponId: coupon._id.toString(),
+              couponCode: coupon.code,
+            },
+          };
+
+          await sendNotification([], payload,
+            {
+              createdBy: req.user?._id,
+            },
+            true,
+            payload,
+            false
+          )
+
     }
 
     return res.status(200).json({
@@ -516,9 +574,14 @@ exports.assignCoupon = async (req, res) => {
       },
     };
 
-    await notificationService.notifyUsers(validUserIds, payload, {
-      createdBy: req.user?._id,
-    });
+    await sendNotification(
+      validUserIds,
+      payload,
+      {createdBy: req.user?._id || null},
+      true,
+      payload,
+      true,
+    )
 
     return res.status(200).json({
       success: true,

@@ -1,7 +1,7 @@
 'use strict';
 
 const Discount = require('../models/Discount');
-const notificationService = require('../services/notificationService');
+const { sendNotification } = require('../utils/appPushNotification');
 
 exports.createDiscount = async (req, res) => {
   try {
@@ -28,9 +28,9 @@ exports.createDiscount = async (req, res) => {
     const resolvedTarget = targetName || title;
     const isSaleCampaign = (scope || 'campaign') === 'campaign';
 
-    await notificationService.notifyAllCustomers(
-      {
-        title: isSaleCampaign ? 'Sale Alert 🔥' : 'Special Offer',
+    await sendNotification(
+      [],
+      { title: isSaleCampaign ? 'Sale Alert 🔥' : 'Special Offer',
         body: isSaleCampaign
           ? `Check out today's deals on ${resolvedTarget}.`
           : `${value}% off on ${resolvedTarget}. Limited time!`,
@@ -42,10 +42,12 @@ exports.createDiscount = async (req, res) => {
           value: discount.value,
           scope: discount.scope,
           targetName: discount.targetName,
-        },
-      },
-      { createdBy: req.user?._id || null }
-    );
+        }},
+      { createdBy: req.user?._id || null },
+      true,
+      {},
+      true,
+    )
 
     return res.status(201).json({
       success: true,

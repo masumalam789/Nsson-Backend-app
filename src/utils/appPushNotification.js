@@ -66,7 +66,7 @@ const sendNotification = async (
     };
 
     if (isBroadcast) {
-      pushResult = await sendToTopic("all_user", pushContent);
+      pushResult = await sendToTopic("all_users", pushContent);
     } else {
       const tokens = activeUsers.map((u) => u.fcmToken).filter(Boolean);
 

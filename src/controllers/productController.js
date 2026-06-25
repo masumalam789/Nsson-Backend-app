@@ -1,9 +1,8 @@
 const Product = require("../models/Product");
-const notificationService = require("../services/notificationService");
 const path = require("path");
 const { deleteFile: deleteProductImage } = require("../config/productUpload");
 const { deleteFile } = require("../config/multer");
-const { sendToTopic } = require("../utils/appPushNotification");
+const { sendToTopic, sendNotification } = require("../utils/appPushNotification");
 
 // const { v4: uuid } = require("uuid");
 const fileUpload = require("../config/multer");
@@ -233,7 +232,8 @@ exports.updateProduct = async (req, res) => {
     await product.save();
 
     if (discount !== undefined && Number(discount) > 0) {
-      await notificationService.notifyAllCustomers(
+      await sendNotification(
+        [],
         {
           title: "Special Offer",
           body: `${Number(discount)}% off on ${product.name}. Limited time!`,
@@ -245,7 +245,10 @@ exports.updateProduct = async (req, res) => {
           },
         },
         { createdBy: req.user?._id || null },
-      );
+        true,
+        {},
+        false
+      )
     }
 
     res.status(200).json({
