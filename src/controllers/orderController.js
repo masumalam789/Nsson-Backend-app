@@ -5,7 +5,7 @@ const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const Address = require("../models/Address");
 const Coupon = require("../models/Coupon");
-const { sendToUser, insertNotificationsForUsers } = require("../utils/appPushNotification");
+const { sendToUser, sendNotification } = require("../utils/appPushNotification");
 const couponService = require("../services/couponService");
 const EmailService = require("../services/emailService");
 
@@ -478,7 +478,31 @@ exports.updateOrderStatus = async (req, res) => {
         //   },
         //   { createdBy: req.user?._id || null },
         // );
-        await insertNotificationsForUsers(
+        // await insertNotificationsForUsers(
+        //   [order.userId],
+        //   {
+        //     title: message.title,
+        //     body: message.body,
+        //     category: "info",
+        //     data: {
+        //       orderId: order._id,
+        //       status: order.status,
+        //       paymentStatus: order.paymentStatus,
+        //     },
+        //   },
+        // );
+
+        // await sendToUser(order.userId._id,{
+        //   title: message.title,
+        //   body: message.body,
+        //   data: {
+        //     orderId: order._id,
+        //     products: order.items.map((item) => item.name),
+        //     status: order.status,
+        //     paymentStatus: order.paymentStatus,
+        //   },
+        // })
+        const result = await sendNotification(
           [order.userId],
           {
             title: message.title,
@@ -490,19 +514,14 @@ exports.updateOrderStatus = async (req, res) => {
               paymentStatus: order.paymentStatus,
             },
           },
-        );
-
-        await sendToUser(order.userId._id,{
-          title: message.title,
-          body: message.body,
-          data: {
-            orderId: order._id,
-            products: order.items.map((item) => item.name),
-            status: order.status,
-            paymentStatus: order.paymentStatus,
+          { createdBy: req.user?._id || null },
+          true, // send_push_notification
+          {
+            title: message.title,
+            body: message.body
           },
-        })
-
+          true, // create_notification_entry
+        );
 
         await EmailService.sendOrderStatusUpdateEmail(order.userId, order, product_names);
       }

@@ -6,6 +6,7 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Category = require('../models/Category');
 const notificationService = require('../services/notificationService');
+const { sendNotification } = require('../utils/appPushNotification');
 
 // ─── admin dashboard statistics ──────────────────────────
 exports.getDashboardStats = async (req, res) => {
@@ -287,7 +288,21 @@ exports.bulkUpdateProducts = async (req, res) => {
       const sampleProduct = await Product.findOne({ _id: { $in: productIds } }).select('name category');
       const targetName = sampleProduct?.category || sampleProduct?.name || 'selected products';
 
-      await notificationService.notifyAllCustomers(
+      // await notificationService.notifyAllCustomers(
+      //   {
+      //     title: 'Special Offer',
+      //     body: `${Number(updateData.discount)}% off on ${targetName}. Limited time!`,
+      //     category: 'discount',
+      //     data: {
+      //       discount: Number(updateData.discount),
+      //       productCount: productIds.length,
+      //       targetName,
+      //     },
+      //   },
+      //   { createdBy: req.user?._id || null }
+      // );
+      const result = await sendNotification(
+        null,
         {
           title: 'Special Offer',
           body: `${Number(updateData.discount)}% off on ${targetName}. Limited time!`,
@@ -298,7 +313,10 @@ exports.bulkUpdateProducts = async (req, res) => {
             targetName,
           },
         },
-        { createdBy: req.user?._id || null }
+        { createdBy: req.user?._id || null },
+        true, // send_push_notification
+        {},
+        true, // create_notification_entry
       );
     }
 
