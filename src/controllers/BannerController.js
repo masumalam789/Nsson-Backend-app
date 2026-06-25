@@ -154,15 +154,15 @@ const createBanner = async (req, res) => {
     }
 
     const banner = await Banner.create(data);
-    await sendToTopic("all_users", {
-      title: "🔥 New Offer Available",
-      body: `${banner.heading}${banner.subheading ? '\n' + banner.subheading : ''}`,
-      data: {
-        type: "banner",
-        bannerId: banner._id.toString(),
-        category: resolveBannerCategory(banner),
-      },
-    });
+    // await sendToTopic("all_users", {
+    //   title: "🔥 New Offer Available",
+    //   body: `${banner.heading}${banner.subheading ? '\n' + banner.subheading : ''}`,
+    //   data: {
+    //     type: "banner",
+    //     bannerId: banner._id.toString(),
+    //     category: resolveBannerCategory(banner),
+    //   },
+    // });
 
     res.status(201).json({
       success: true,
@@ -206,18 +206,18 @@ const updateBanner = async (req, res) => {
       { new: true, runValidators: true },
     );
 
-    await notificationService.notifyAllCustomers(
-      {
-        title: "New Arrival",
-        body: `Fresh stock available in ${resolveBannerCategory(updated)}.`,
-        category: "info",
-        data: {
-          bannerId: updated._id,
-          category: resolveBannerCategory(updated),
-        },
-      },
-      { createdBy: req.user?._id || null },
-    );
+    // await notificationService.notifyAllCustomers(
+    //   {
+    //     title: "New Arrival",
+    //     body: `Fresh stock available in ${resolveBannerCategory(updated)}.`,
+    //     category: "info",
+    //     data: {
+    //       bannerId: updated._id,
+    //       category: resolveBannerCategory(updated),
+    //     },
+    //   },
+    //   { createdBy: req.user?._id || null },
+    // );
 
     res.json({
       success: true,
