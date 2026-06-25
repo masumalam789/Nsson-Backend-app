@@ -1,11 +1,83 @@
 "use strict";
 
 const User = require("../models/User");
+const Notification = require("../models/Notification")
 const app = require("../config/firebase");
 const { getMessaging } = require("firebase-admin/messaging");
 
 const messaging = getMessaging(app);
 
+const bulkInsertHelperFunction = async (users, payload, options = {}) => {
+
+  return Notification.insertMany(
+    users.map((user) => ({
+      userId: user._id,
+      title: payload.title,
+      body: payload.body,
+      category: payload.category,
+      data: payload.data || {},
+      createdBy: options.createdBy || null,
+    })),
+  );
+}
+
+const sendNotification = async (
+  usersIds,
+  payload,
+  options = {},
+  send_push_notification = false,
+  send_push_payload = {},
+  create_notification_entry = true,
+) => {
+  // Bail out early if neither action is requested — no point hitting the DB
+  if (!create_notification_entry && !send_push_notification) {
+    return [];
+  }
+
+  const isBroadcast = !usersIds || usersIds.length === 0;
+
+  // Resolve target users: specific IDs, or everyone if broadcasting
+  const query = isBroadcast ? {} : { _id: { $in: usersIds } };
+
+  const users = await User.find(query).select("_id fcmToken status role");
+
+  const activeUsers = users.filter((user) => user.role === "customer" && user.status === "approved");
+
+  if (activeUsers.length === 0) {
+    return [];
+  }
+
+  // 1. Conditionally create DB entries
+  let notifications = [];
+
+  if (create_notification_entry) {
+    notifications = await bulkInsertHelperFunction(activeUsers, payload, options);
+  }
+
+  // 2. Conditionally fire push notifications
+  let pushResult = null;
+
+  if (send_push_notification) {
+    // Merge: use send_push_payload fields if provided, else fall back to payload
+    const pushContent = {
+      title: send_push_payload.title ?? payload.title,
+      body: send_push_payload.body ?? payload.body,
+      data: send_push_payload.data ?? payload.data ?? {},
+    };
+
+    if (isBroadcast) {
+      pushResult = await sendToTopic("all_users", pushContent);
+    } else {
+      const tokens = activeUsers.map((u) => u.fcmToken).filter(Boolean);
+
+      if (tokens.length > 0) {
+        pushResult = await sendToMultipleDevices(tokens, pushContent);
+      }
+    }
+  }
+
+  return { notifications, pushResult };
+};
 /**
  * Send notification to a single device
  */
@@ -153,4 +225,5 @@ module.exports = {
   sendToUser,
   sendToMultipleDevices,
   sendToTopic,
+  sendNotification
 };

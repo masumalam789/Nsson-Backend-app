@@ -1,8 +1,8 @@
 'use strict';
 
 const User = require('../models/User');
-const notificationService = require('../services/notificationService');
 const EmailService = require('../services/emailService');
+const { sendNotification } = require('../utils/appPushNotification');
 
 function normalizeApprovalStatus(value) {
   return String(value || '').trim().toLowerCase();
@@ -135,29 +135,37 @@ exports.updateUser = async (req, res) => {
       }
 
       if (normalizedStatus === 'approved') {
-        await notificationService.notifyUser(
-          user._id,
+        await sendNotification(
+          [user._id],
           {
             title: 'Account Approved',
             body: 'Your account has been approved. You can now place orders!',
             category: 'approved',
             data: { userId: user._id, status: user.status },
           },
-          { createdBy: req.user?._id || null }
-        );
+          { createdBy: req.user?._id || null },
+          true,
+          {},
+          true
+        )
       }
 
       if (normalizedStatus === 'rejected') {
-        await notificationService.notifyUser(
-          user._id,
+
+        await sendNotification(
+          [user._id],
           {
-            title: 'Account Suspended',
-            body: 'Your account access has been restricted. Contact support.',
+            title: 'Account Rejected',
+            body: 'Your account has been rejected. Contact support.',
             category: 'info',
             data: { userId: user._id, status: user.status },
           },
-          { createdBy: req.user?._id || null }
-        );
+          { createdBy: req.user?._id || null },
+          true,
+          {},
+          true
+        )
+        
       }
     }
 
@@ -200,8 +208,8 @@ exports.updateUserApproval = async (req, res) => {
       console.error('[User] approval status email failed:', emailResult.error);
     }
 
-    await notificationService.notifyUser(
-      user._id,
+    await sendNotification(
+      [user._id],
       {
         title: normalizedStatus === 'approved' ? 'Account Approved' : 'Account Rejected',
         body: normalizedStatus === 'approved'
@@ -214,8 +222,11 @@ exports.updateUserApproval = async (req, res) => {
           reason: req.body.reason || null,
         },
       },
-      { createdBy: req.user?._id || null }
-    );
+      { createdBy: req.user?._id || null },
+      true,
+      {},
+      true
+    )
 
     return res.status(200).json({
       message: `User approval status updated to ${normalizedStatus}`,
@@ -289,17 +300,6 @@ exports.approveUser = async (req, res) => {
       console.error('[User] account approved email failed:', emailResult.error);
     }
 
-    // await notificationService.notifyUser(
-    //   user._id,
-    //   {
-    //     title: 'Account Approved',
-    //     body: 'Your account has been approved. You can now place orders!',
-    //     category: 'approved',
-    //     data: { userId: user._id, status: user.status },
-    //   },
-    //   { createdBy: req.user?._id || null }
-    // );
-
     return res.status(200).json({
       message: `${user.firstName} ${user.lastName}'s account has been approved. They can now log in.`,
       user,
@@ -335,17 +335,6 @@ exports.rejectUser = async (req, res) => {
     if (!emailResult.success) {
       console.error('[User] account rejected email failed:', emailResult.error);
     }
-
-    await notificationService.notifyUser(
-      user._id,
-      {
-        title: 'Account Suspended',
-        body: 'Your account access has been restricted. Contact support.',
-        category: 'info',
-        data: { userId: user._id, status: user.status },
-      },
-      { createdBy: req.user?._id || null }
-    );
 
     return res.status(200).json({
       message: `${user.firstName} ${user.lastName}'s account has been rejected.`,

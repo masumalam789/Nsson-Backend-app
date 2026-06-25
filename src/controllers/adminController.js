@@ -5,7 +5,7 @@ const User = require('../models/User');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Category = require('../models/Category');
-const notificationService = require('../services/notificationService');
+const { sendNotification } = require('../utils/appPushNotification');
 
 // ─── admin dashboard statistics ──────────────────────────
 exports.getDashboardStats = async (req, res) => {
@@ -287,7 +287,8 @@ exports.bulkUpdateProducts = async (req, res) => {
       const sampleProduct = await Product.findOne({ _id: { $in: productIds } }).select('name category');
       const targetName = sampleProduct?.category || sampleProduct?.name || 'selected products';
 
-      await notificationService.notifyAllCustomers(
+      const result = await sendNotification(
+        null,
         {
           title: 'Special Offer',
           body: `${Number(updateData.discount)}% off on ${targetName}. Limited time!`,
@@ -298,7 +299,10 @@ exports.bulkUpdateProducts = async (req, res) => {
             targetName,
           },
         },
-        { createdBy: req.user?._id || null }
+        { createdBy: req.user?._id || null },
+        true, // send_push_notification
+        {},
+        true, // create_notification_entry
       );
     }
 
@@ -458,9 +462,10 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
           };
 
           const message = statusMessages[status];
+          const userid = order.userId?._id || order.userId
           return message
-            ? notificationService.notifyUser(
-                order.userId?._id || order.userId,
+            ? sendNotification(
+                [userid],
                 {
                   title: message.title,
                   body: message.body,
@@ -470,7 +475,10 @@ exports.bulkUpdateOrderStatus = async (req, res) => {
                     status,
                   },
                 },
-                { createdBy: req.user?._id || null }
+                { createdBy: req.user?._id || null },
+                true,
+                {},
+                true
               )
             : Promise.resolve(null);
         }

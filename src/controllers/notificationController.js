@@ -2,7 +2,7 @@
 
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-const notificationService = require('../services/notificationService');
+const { sendNotification } = require('../utils/appPushNotification');
 
 exports.getMyNotifications = async (req, res) => {
   try {
@@ -154,9 +154,14 @@ exports.broadcastAnnouncement = async (req, res) => {
       data,
     };
 
-    const notifications = userIds.length
-      ? await notificationService.notifyUsers(userIds, payload, { createdBy: req.user._id })
-      : await notificationService.notifyAllCustomers(payload, { createdBy: req.user._id });
+    const { notifications = []} = await sendNotification(
+      userIds,
+      payload,
+      {},
+      true,
+      {},
+      true
+    )
 
     return res.status(200).json({
       success: true,
