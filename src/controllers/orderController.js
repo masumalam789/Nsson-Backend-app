@@ -63,8 +63,7 @@ async function createOrderFromCart({
   shippingAddressId,
   paymentMethod,
   couponId,
-  couponCode,
-  couponId
+  couponCode
 }) {
   const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
