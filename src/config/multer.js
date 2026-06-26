@@ -128,10 +128,12 @@ const buildUrl = (publicIdOrUrl) => {
 // ─── Pre-built uploaders ──────────────────────────────────────────────────────
 const upload = createUploader("banners", "banner");
 const productUpload = createUploader("products", "product");
+const brandUpload = createUploader("brands", "brand");
 
 module.exports = {
   upload,
   productUpload,
+  brandUpload,
   createUploader,
   deleteFile,
   buildUrl,

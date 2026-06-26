@@ -1,7 +1,22 @@
 'use strict';
 
+const mongoose = require('mongoose');
 const Coupon = require('../models/Coupon');
 const UserCoupon = require('../models/UserCoupon');
+
+const getEffectivePerUserLimit = (coupon) => {
+  if (coupon.couponType === 'public') return 1;
+  return coupon.per_user_limit ?? 1;
+};
+
+const getUserUsageCount = (coupon, userId) => {
+  if (!userId || !coupon.used_users?.length) return 0;
+  const userIdStr = userId.toString();
+  const entry = coupon.used_users.find(
+    (u) => u.user_id && u.user_id.toString() === userIdStr
+  );
+  return entry?.usage_count || 0;
+};
 
 /**
  * Validate a coupon and calculate discount amount.
@@ -62,6 +77,15 @@ exports.validateAndCalculate = async (code, orderAmount, userId = null) => {
     }
   }
 
+  // ── Per-user usage limit ─────────────────────────────────────────────────────
+  if (userId) {
+    const perUserLimit = getEffectivePerUserLimit(coupon);
+    const userUsageCount = getUserUsageCount(coupon, userId);
+    if (userUsageCount >= perUserLimit) {
+      throw new Error('You have reached the usage limit for this coupon');
+    }
+  }
+
   // ── Discount calculation ─────────────────────────────────────────────────────
   let discountAmount = 0;
   if (coupon.discountType === 'percentage') {
@@ -86,3 +110,61 @@ exports.validateAndCalculate = async (code, orderAmount, userId = null) => {
     finalAmount: parseFloat(finalAmount.toFixed(2)),
   };
 };
+
+/**
+ * Record coupon usage after a successful order.
+ */
+exports.recordCouponUsage = async (couponId, userId) => {
+  if (!couponId || !userId) return;
+
+  const userObjectId = mongoose.Types.ObjectId.isValid(userId)
+    ? new mongoose.Types.ObjectId(userId)
+    : userId;
+
+  const updated = await Coupon.findOneAndUpdate(
+    { _id: couponId, 'used_users.user_id': userObjectId },
+    {
+      $inc: { usedCount: 1, 'used_users.$.usage_count': 1 },
+    },
+    { new: true }
+  );
+
+  if (!updated) {
+    await Coupon.findByIdAndUpdate(couponId, {
+      $inc: { usedCount: 1 },
+      $push: { used_users: { user_id: userObjectId, usage_count: 1 } },
+    });
+  }
+};
+
+/**
+ * Roll back coupon usage when an order is cancelled or payment expires.
+ */
+exports.rollbackCouponUsage = async (couponId, userId) => {
+  if (!couponId) return;
+
+  if (userId) {
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId)
+      ? new mongoose.Types.ObjectId(userId)
+      : userId;
+
+    const updated = await Coupon.findOneAndUpdate(
+      {
+        _id: couponId,
+        'used_users.user_id': userObjectId,
+        'used_users.usage_count': { $gt: 0 },
+      },
+      {
+        $inc: { usedCount: -1, 'used_users.$.usage_count': -1 },
+      },
+      { new: true }
+    );
+
+    if (updated) return;
+  }
+
+  await Coupon.findByIdAndUpdate(couponId, { $inc: { usedCount: -1 } });
+};
+
+exports.getEffectivePerUserLimit = getEffectivePerUserLimit;
+exports.getUserUsageCount = getUserUsageCount;

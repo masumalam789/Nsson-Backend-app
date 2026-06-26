@@ -21,6 +21,7 @@ exports.createCoupon = async (req, res) => {
       startDate,
       endDate,
       usageLimit,
+      per_user_limit,
       isActive,
       couponType,
       userIds,
@@ -77,6 +78,25 @@ exports.createCoupon = async (req, res) => {
         .json({ success: false, error: "Start date cannot be after end date" });
     }
 
+    const resolvedCouponType = couponType || "public";
+    let resolvedPerUserLimit = 1;
+    if (resolvedCouponType === "private") {
+      if (
+        per_user_limit !== undefined &&
+        per_user_limit !== "" &&
+        Number(per_user_limit) < 1
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Per-user limit must be at least 1",
+        });
+      }
+      resolvedPerUserLimit =
+        per_user_limit !== undefined && per_user_limit !== ""
+          ? Number(per_user_limit)
+          : 1;
+    }
+
     const coupon = await Coupon.create({
       code: normalizedCode,
       title: title || "",
@@ -91,8 +111,9 @@ exports.createCoupon = async (req, res) => {
         usageLimit !== undefined && usageLimit !== ""
           ? Number(usageLimit)
           : null,
+      per_user_limit: resolvedPerUserLimit,
       isActive: isActive !== undefined ? isActive : true,
-      couponType: couponType || "public",
+      couponType: resolvedCouponType,
     });
 
     // Handle initial user assignments if private
@@ -226,6 +247,7 @@ exports.updateCoupon = async (req, res) => {
       startDate,
       endDate,
       usageLimit,
+      per_user_limit,
       isActive,
       couponType,
       userIds,
@@ -298,6 +320,23 @@ exports.updateCoupon = async (req, res) => {
     if (endDate !== undefined) coupon.endDate = endDate || null;
     if (usageLimit !== undefined)
       coupon.usageLimit = usageLimit !== "" ? Number(usageLimit) : null;
+
+    const resolvedCouponType = couponType !== undefined ? couponType : coupon.couponType;
+    if (resolvedCouponType === "public") {
+      coupon.per_user_limit = 1;
+    } else if (per_user_limit !== undefined) {
+      if (per_user_limit !== "" && Number(per_user_limit) < 1) {
+        return res.status(400).json({
+          success: false,
+          error: "Per-user limit must be at least 1",
+        });
+      }
+      coupon.per_user_limit =
+        per_user_limit !== "" ? Number(per_user_limit) : 1;
+    } else if (coupon.couponType === "private" && !coupon.per_user_limit) {
+      coupon.per_user_limit = 1;
+    }
+
     if (isActive !== undefined) coupon.isActive = isActive;
 
     await coupon.save();
@@ -424,6 +463,7 @@ exports.deleteCoupon = async (req, res) => {
 
 exports.getAvailableCoupons = async (req, res) => {
   try {
+    const userId = req.user?._id;
     const now = new Date();
     // Coupons expired more than 15 days ago are invisible to users entirely
     const cutoff = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
@@ -436,14 +476,21 @@ exports.getAvailableCoupons = async (req, res) => {
       couponType: "public",
     })
       .select(
-        "code title description discountType discountValue minOrderAmount maxDiscountAmount startDate endDate usageLimit usedCount couponType isActive",
+        "code title description discountType discountValue minOrderAmount maxDiscountAmount startDate endDate usageLimit usedCount per_user_limit used_users couponType isActive",
       )
       .sort({ createdAt: -1 });
 
-    // Filter out exhausted coupons
+    // Filter out exhausted coupons and coupons the user has already used
     const available = coupons.filter((c) => {
-      if (c.usageLimit === null || c.usageLimit === undefined) return true;
-      return c.usedCount < c.usageLimit;
+      if (c.usageLimit !== null && c.usageLimit !== undefined) {
+        if (c.usedCount >= c.usageLimit) return false;
+      }
+      if (userId) {
+        const userUsageCount = couponService.getUserUsageCount(c, userId);
+        const perUserLimit = couponService.getEffectivePerUserLimit(c);
+        if (userUsageCount >= perUserLimit) return false;
+      }
+      return true;
     });
 
     return res.status(200).json({ success: true, coupons: available });
@@ -612,7 +659,7 @@ exports.getMyAssignedCoupons = async (req, res) => {
       .populate({
         path: "couponId",
         select:
-          "code title description discountType discountValue minOrderAmount maxDiscountAmount startDate endDate usageLimit usedCount couponType isActive",
+          "code title description discountType discountValue minOrderAmount maxDiscountAmount startDate endDate usageLimit usedCount per_user_limit used_users couponType isActive",
         match: {
           $or: [{ endDate: null }, { endDate: { $gte: cutoff } }],
         },
@@ -624,7 +671,9 @@ exports.getMyAssignedCoupons = async (req, res) => {
       .map((a) => {
         const c = a.couponId.toObject();
 
-        const isUsed = a.isUsed;
+        const userUsageCount = couponService.getUserUsageCount(c, userId);
+        const perUserLimit = couponService.getEffectivePerUserLimit(c);
+        const isUsed = userUsageCount >= perUserLimit;
 
         // Normalize start date (00:00:00)
         let startDate = null;
@@ -667,6 +716,8 @@ exports.getMyAssignedCoupons = async (req, res) => {
           ...c,
           assignedAt: a.createdAt,
           isUsed,
+          userUsageCount,
+          perUserLimit,
           status,
           usable: status === "active",
         };
