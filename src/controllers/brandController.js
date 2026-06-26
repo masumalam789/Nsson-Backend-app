@@ -2,7 +2,7 @@
 
 const Brand   = require('../models/Brand');
 const Product = require('../models/Product');
-const { deleteFile, buildUrl } = require('../config/brandUpload');
+const { deleteFile, buildUrl } = require('../config/multer');
 
 // Helper to generate slug
 function makeSlug(name) {
@@ -13,18 +13,12 @@ function makeSlug(name) {
     .replace(/-+/g, '-');
 }
 
-const getPublicBaseUrl = (req) => {
-  const configuredBase = process.env.BASE_URL;
-  if (configuredBase) return configuredBase.replace(/\/+$/, "");
-
-  const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
-  return `${proto}://${req.get("host")}`;
-};
-
-const serializeBrand = (req, brand) => {
+const serializeBrand = (_req, brand) => {
   const obj = typeof brand.toObject === "function" ? brand.toObject() : { ...brand };
-  if (obj.logoPublicId) {
-    obj.logo = `${getPublicBaseUrl(req)}/uploads/brands/${obj.logoPublicId}`;
+  if (obj.logo) {
+    obj.logo = buildUrl(obj.logo);
+  } else if (obj.logoPublicId) {
+    obj.logo = buildUrl(obj.logoPublicId);
   }
   return obj;
 };
@@ -87,7 +81,7 @@ exports.getProductsByBrand = async (req, res) => {
     if (!brand) return res.status(404).json({ success: false, error: 'Brand not found' });
 
     const products = await Product.find({ brand: brand.name }).sort({ createdAt: -1 });
-    return res.json({ success: true, brand, products, total: products.length });
+    return res.json({ success: true, brand: serializeBrand(req, brand), products, total: products.length });
   } catch (error) {
     console.error('[Brand] getProductsByBrand error:', error);
     return res.status(500).json({ success: false, error: 'Failed to retrieve products' });
@@ -108,7 +102,7 @@ exports.createBrand = async (req, res) => {
     });
     if (existing) return res.status(409).json({ success: false, error: 'Brand already exists' });
 
-    const logo = req.file ? buildUrl(req.file.filename) : (req.body.logo || '');
+    const logo = req.file ? req.file.path : (req.body.logo || '');
     const logoPublicId = req.file?.filename || '';
     const slug = makeSlug(name);
 
@@ -124,6 +118,7 @@ exports.createBrand = async (req, res) => {
 
     return res.status(201).json({ success: true, message: 'Brand created successfully', brand: serializeBrand(req, brand) });
   } catch (error) {
+    if (req.file?.path) deleteFile(req.file.path);
     console.error('[Brand] createBrand error:', error);
     return res.status(500).json({ success: false, error: 'Failed to create brand' });
   }
@@ -136,7 +131,7 @@ exports.updateBrand = async (req, res) => {
     const existingBrand = await Brand.findById(req.params.id);
 
     if (!existingBrand) {
-      if (req.file?.filename) deleteFile(req.file.filename);
+      if (req.file?.path) deleteFile(req.file.path);
       return res.status(404).json({ success: false, error: 'Brand not found' });
     }
 
@@ -146,9 +141,10 @@ exports.updateBrand = async (req, res) => {
     if (featured     !== undefined) updateData.featured      = featured === true || featured === 'true';
     if (vehicleTypes !== undefined) updateData.vehicleTypes  = Array.isArray(vehicleTypes) ? vehicleTypes : [];
     if (req.file) {
-      updateData.logo = buildUrl(req.file.filename);
+      updateData.logo = req.file.path;
       updateData.logoPublicId = req.file.filename;
       if (existingBrand.logoPublicId) deleteFile(existingBrand.logoPublicId);
+      else if (existingBrand.logo) deleteFile(existingBrand.logo);
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -159,6 +155,7 @@ exports.updateBrand = async (req, res) => {
 
     return res.json({ success: true, message: 'Brand updated successfully', brand: serializeBrand(req, brand) });
   } catch (error) {
+    if (req.file?.path) deleteFile(req.file.path);
     console.error('[Brand] updateBrand error:', error);
     return res.status(500).json({ success: false, error: 'Failed to update brand' });
   }
@@ -182,6 +179,8 @@ exports.deleteBrand = async (req, res) => {
 
     if (brand.logoPublicId) {
       deleteFile(brand.logoPublicId);
+    } else if (brand.logo) {
+      deleteFile(brand.logo);
     }
 
     await Brand.findByIdAndDelete(req.params.id);

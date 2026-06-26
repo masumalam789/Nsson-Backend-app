@@ -2,13 +2,13 @@
 const express          = require('express');
 const router           = express.Router();
 const brandController  = require('../controllers/brandController');
-const { upload } = require('../config/brandUpload');
+const { brandUpload } = require('../config/multer');
 const { authMiddleware }  = require('../middleware/auth');
 const { adminMiddleware } = require('../middleware/admin');
 
 function withLogoUpload(handler) {
   return (req, res, next) => {
-    upload.single('logo')(req, res, (err) => {
+    brandUpload.single('logo')(req, res, (err) => {
       if (err) {
         return res.status(err.status || 400).json({
           success: false,

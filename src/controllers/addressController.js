@@ -45,7 +45,7 @@ const getAddressById = async (req, res) => {
 const createAddress = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { fullName, phone, street, city, state, zipCode, country, addressType, isDefault } = req.body;
+    const { fullName, phone, street, landmark, city, state, zipCode, country, addressType, isDefault } = req.body;
 
     // Basic validation
     if (!fullName || !phone || !street || !city || !state || !zipCode) {
@@ -79,6 +79,7 @@ const createAddress = async (req, res) => {
       fullName: fullName.trim(),
       phone: phone.trim(),
       street: street.trim(),
+      landmark: landmark?.trim() || '',
       city: city.trim(),
       state: state.trim(),
       zipCode: zipCode.trim(),
@@ -116,7 +117,7 @@ const updateAddress = async (req, res) => {
   try {
     const userId = req.user._id;
     const addressId = req.params.id;
-    const { fullName, phone, street, city, state, zipCode, country, addressType, isDefault } = req.body;
+    const { fullName, phone, street, landmark, city, state, zipCode, country, addressType, isDefault } = req.body;
 
     const address = await Address.findOne({ _id: addressId, userId });
     
@@ -128,6 +129,7 @@ const updateAddress = async (req, res) => {
     if (fullName) address.fullName = fullName.trim();
     if (phone) address.phone = phone.trim();
     if (street) address.street = street.trim();
+    if (landmark !== undefined) address.landmark = landmark.trim();
     if (city) address.city = city.trim();
     if (state) address.state = state.trim();
     if (zipCode) address.zipCode = zipCode.trim();

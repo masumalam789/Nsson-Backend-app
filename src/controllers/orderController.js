@@ -154,9 +154,7 @@ async function createOrderFromCart({
 
   // Increment coupon usage after successful order creation
   if (resolvedCouponId) {
-    await Coupon.findByIdAndUpdate(resolvedCouponId, {
-      $inc: { usedCount: 1 },
-    });
+    await couponService.recordCouponUsage(resolvedCouponId, userId);
   }
 
   try {
@@ -307,7 +305,7 @@ exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("userId", "firstName lastName email")
-      .populate("shippingAddress", "phone street city state country zipCode")
+      .populate("shippingAddress", "phone street landmark city state country zipCode")
       .select("-__v");
 
     if (!order) {
@@ -372,9 +370,7 @@ exports.cancelOrder = async (req, res) => {
 
     // Restore coupon usage if a coupon was applied
     if (order.couponId) {
-      await Coupon.findByIdAndUpdate(order.couponId, {
-        $inc: { usedCount: -1 },
-      });
+      await couponService.rollbackCouponUsage(order.couponId, order.userId);
     }
 
     return res.status(200).json({
@@ -435,7 +431,7 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Restore coupon usage if order is being cancelled by admin and was not previously cancelled
     if (status === 'cancelled' && previousStatus !== 'cancelled' && order.couponId) {
-      await Coupon.findByIdAndUpdate(order.couponId, { $inc: { usedCount: -1 } });
+      await couponService.rollbackCouponUsage(order.couponId, order.userId);
     }
 
     if (status) {

@@ -64,6 +64,25 @@ const couponSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    per_user_limit: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+    used_users: [
+      {
+        user_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        usage_count: {
+          type: Number,
+          default: 0,
+          min: 0,
+        },
+      },
+    ],
     isActive: {
       type: Boolean,
       default: true,

@@ -21,6 +21,11 @@ const addressSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  landmark: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   city: {
     type: String,
     required: true,

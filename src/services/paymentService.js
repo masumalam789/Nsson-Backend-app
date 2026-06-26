@@ -112,9 +112,7 @@ class PaymentService {
 
     // Increment coupon usage after order creation
     if (resolvedCouponId) {
-      await Coupon.findByIdAndUpdate(resolvedCouponId, {
-        $inc: { usedCount: 1 },
-      });
+      await couponService.recordCouponUsage(resolvedCouponId, userId);
     }
 
     // 4. Reserve stock (deduct now, restore on expiry if unpaid)
@@ -181,9 +179,10 @@ class PaymentService {
 
             // 3. Restore coupon usage if applied
             if (currentOrder.couponId) {
-              await Coupon.findByIdAndUpdate(currentOrder.couponId, {
-                $inc: { usedCount: -1 },
-              });
+              await couponService.rollbackCouponUsage(
+                currentOrder.couponId,
+                currentOrder.userId
+              );
             }
 
             // 4. Mark payment EXPIRED
@@ -453,9 +452,7 @@ class PaymentService {
 
     // 3. Restore coupon usage if applied
     if (order.couponId) {
-      await Coupon.findByIdAndUpdate(order.couponId, {
-        $inc: { usedCount: -1 },
-      });
+      await couponService.rollbackCouponUsage(order.couponId, order.userId);
     }
 
     // 4. Mark payment CANCELLED
