@@ -80,6 +80,18 @@ class EmailService {
       },
     });
   }
+  static async sendMobileForgotPasswordEmail(user, resetToken) {
+    return this.sendMail({
+      to: user.email,
+      subject: "Reset Your Password – NSSON Auto Parts",
+      template: "forgot-password-mobile",
+      data: {
+        firstName: user.firstName,
+        // Points to your verify-token route, NOT directly to the frontend
+        verifyUrl: `${process.env.BACKEND_URL}/api/auth/verify-token/${resetToken}`,
+      },
+    });
+  }
 
   static async sendOrderConfirmedEmail(user, order) {
     return this.sendMail({
@@ -95,8 +107,8 @@ class EmailService {
     });
   }
 
-static async sendOrderStatusUpdateEmail(user, order, productNames) {
-  // ['awaiting_payment', 'pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
+  static async sendOrderStatusUpdateEmail(user, order, productNames) {
+    // ['awaiting_payment', 'pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
     const statusSubjects = {
       awaiting_payment: "Your Order Awaiting Payment",
       pending: "Your Order Pending",
@@ -108,8 +120,7 @@ static async sendOrderStatusUpdateEmail(user, order, productNames) {
       refunded: "Your Order Has Been Refunded",
     };
 
-    const subject =
-      statusSubjects[order.status] || "Update on Your Order";
+    const subject = statusSubjects[order.status] || "Update on Your Order";
 
     return this.sendMail({
       to: user.email,
@@ -119,7 +130,7 @@ static async sendOrderStatusUpdateEmail(user, order, productNames) {
         firstName: user.firstName,
         orderNumber: order.orderNumber || order._id,
         orderName: productNames,
-        orderStatus: order.status
+        orderStatus: order.status,
       },
     });
   }

@@ -527,7 +527,10 @@ exports.userForgotPassword = async (req, res) => {
     await user.save();
 
     // ✅ Fixed: was incorrectly calling non-existent userForgotPasswordEmail
-    const result = await EmailService.sendForgotPasswordEmail(user, rawToken);
+    const result = await EmailService.sendMobileForgotPasswordEmail(
+      user,
+      rawToken,
+    );
 
     if (!result.success) {
       user.resetPasswordToken = undefined;
@@ -559,7 +562,8 @@ exports.userForgotPassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
-    const { password, confirmPassword } = req.body;
+    const { newPassword: password, confirmPassword } = req.body;
+    console.log(req.body);
 
     if (!token) {
       return res.status(400).json({ error: "Reset token is required" });
@@ -588,7 +592,10 @@ exports.resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ error: "Invalid or expired reset token" });
+      return res.status(400).json({
+        error:
+          "Invalid or expired reset token, Please try again generating new reset password link!",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
