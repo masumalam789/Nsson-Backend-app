@@ -12,7 +12,8 @@ app.use(
     origin: [
       "http://localhost:3000",
       "https://nasson-moto-admin-panel.onrender.com",
-      "https://nsson-admin-panel.vercel.app"
+      "https://nsson-admin-panel.vercel.app",
+      "https://nsson-frontend-app-nine.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
