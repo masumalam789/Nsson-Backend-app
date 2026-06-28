@@ -303,10 +303,14 @@ const formatOrderDates = (order) => {
 
 exports.getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
-      .populate("userId", "firstName lastName email")
-      .populate("shippingAddress", "phone street landmark city state country zipCode")
-      .select("-__v");
+const order = await Order.findById(req.params.id)
+  .populate("userId", "firstName lastName email")
+  .populate("shippingAddress", "phone street landmark city state country zipCode")
+  .populate({
+    path: "items.productId",
+    select: "images",
+  })
+  .select("-__v");
 
     if (!order) {
       return res
