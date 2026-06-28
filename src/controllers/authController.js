@@ -688,9 +688,11 @@ exports.verifyUserResetToken = async (req, res) => {
     const result = await verify_token_helper(token);
 
     if (!result.success) {
-      return res
-        .status(400)
-        .json({ valid: false, error: "Invalid or expired reset token" });
+      return res.status(400).json({
+        valid: false,
+        error:
+          "Invalid or expired reset token, Please try again to get new reset password link!",
+      });
     }
 
     // ✅ Fix: all Latin characters in scheme name
