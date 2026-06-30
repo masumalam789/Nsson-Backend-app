@@ -246,7 +246,6 @@ exports.createOrder = async (req, res) => {
 
     await reduceStockForOrder(order);
     await clearCart(req.user._id);
-    BACK;
     await sendNotification(
       [req.user._id],
       {
