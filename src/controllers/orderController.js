@@ -160,34 +160,34 @@ async function createOrderFromCart({
     await couponService.recordCouponUsage(resolvedCouponId, userId);
   }
 
-  try {
-    if (normalizedPaymentMethod !== "razorpay_upi") {
-      await sendToUser(userId, {
-        title:
-          normalizedPaymentMethod === "cash_on_delivery"
-            ? "Order Placed"
-            : "Order Created",
-
-        body:
-          normalizedPaymentMethod === "cash_on_delivery"
-            ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
-            : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
-
-        data: {
-          type: "order",
-          orderId: order._id,
-          paymentMethod: normalizedPaymentMethod,
-          status: order.status,
-          amount: order.total,
-        },
-      });
-    }
-  } catch (notifErr) {
-    console.error(
-      "[OrderController] FCM sendToUser error during order creation:",
-      notifErr?.message || notifErr,
-    );
-  }
+  // try {
+  //   if (normalizedPaymentMethod !== "razorpay_upi") {
+  //     await sendToUser(userId, {
+  //       title:
+  //         normalizedPaymentMethod === "cash_on_delivery"
+  //           ? "Order Placed"
+  //           : "Order Created",
+  //
+  //       body:
+  //         normalizedPaymentMethod === "cash_on_delivery"
+  //           ? `Your COD order of ${formatAmount(order.total)} has been placed. We'll confirm it shortly.`
+  //           : `Your order of ${formatAmount(order.total)} was created. Complete payment to confirm it.`,
+  //
+  //       data: {
+  //         type: "order",
+  //         orderId: order._id,
+  //         paymentMethod: normalizedPaymentMethod,
+  //         status: order.status,
+  //         amount: order.total,
+  //       },
+  //     });
+  //   }
+  // } catch (notifErr) {
+  //   console.error(
+  //     "[OrderController] FCM sendToUser error during order creation:",
+  //     notifErr?.message || notifErr,
+  //   );
+  // }
   return order;
 }
 
@@ -246,7 +246,7 @@ exports.createOrder = async (req, res) => {
 
     await reduceStockForOrder(order);
     await clearCart(req.user._id);
-
+    BACK;
     await sendNotification(
       [req.user._id],
       {
