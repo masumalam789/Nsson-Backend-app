@@ -5,7 +5,10 @@ const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const Address = require("../models/Address");
 const Coupon = require("../models/Coupon");
-const { sendToUser, sendNotification } = require("../utils/appPushNotification");
+const {
+  sendToUser,
+  sendNotification,
+} = require("../utils/appPushNotification");
 const couponService = require("../services/couponService");
 const EmailService = require("../services/emailService");
 
@@ -63,7 +66,7 @@ async function createOrderFromCart({
   shippingAddressId,
   paymentMethod,
   couponId,
-  couponCode
+  couponCode,
 }) {
   const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
@@ -246,19 +249,20 @@ exports.createOrder = async (req, res) => {
 
     await sendNotification(
       [req.user._id],
-      "Order Placed",
-      `Your order of ${formatAmount(order.total)} has been placed successfully.`,
       {
+        title: "Order Placed",
+        body: `Your order of ${formatAmount(order.total)} has been placed successfully.`,
         type: "order",
         orderId: order._id,
         paymentMethod: order.paymentMethod,
         status: order.status,
         amount: order.total,
       },
+      {},
       true,
       {},
-      false
-    )
+      false,
+    );
 
     return res.status(201).json({
       success: true,
@@ -319,14 +323,17 @@ const formatOrderDates = (order) => {
 
 exports.getOrderById = async (req, res) => {
   try {
-const order = await Order.findById(req.params.id)
-  .populate("userId", "firstName lastName email")
-  .populate("shippingAddress", "phone street landmark city state country zipCode")
-  .populate({
-    path: "items.productId",
-    select: "images",
-  })
-  .select("-__v");
+    const order = await Order.findById(req.params.id)
+      .populate("userId", "firstName lastName email")
+      .populate(
+        "shippingAddress",
+        "phone street landmark city state country zipCode",
+      )
+      .populate({
+        path: "items.productId",
+        select: "images",
+      })
+      .select("-__v");
 
     if (!order) {
       return res
@@ -432,8 +439,7 @@ exports.updateOrderStatus = async (req, res) => {
 
     const order = await Order.findById(req.params.id)
       .populate("userId", "firstName lastName email")
-      .populate("items.productId", "name")
-    ;
+      .populate("items.productId", "name");
     if (!order) {
       return res
         .status(404)
@@ -450,7 +456,11 @@ exports.updateOrderStatus = async (req, res) => {
     await order.save();
 
     // Restore coupon usage if order is being cancelled by admin and was not previously cancelled
-    if (status === 'cancelled' && previousStatus !== 'cancelled' && order.couponId) {
+    if (
+      status === "cancelled" &&
+      previousStatus !== "cancelled" &&
+      order.couponId
+    ) {
       await couponService.rollbackCouponUsage(order.couponId, order.userId);
     }
 
@@ -480,7 +490,6 @@ exports.updateOrderStatus = async (req, res) => {
 
       const message = statusMessages[status];
       if (message) {
-
         const result = await sendNotification(
           [order.userId],
           {
@@ -497,12 +506,16 @@ exports.updateOrderStatus = async (req, res) => {
           true, // send_push_notification
           {
             title: message.title,
-            body: message.body
+            body: message.body,
           },
           true, // create_notification_entry
         );
 
-        await EmailService.sendOrderStatusUpdateEmail(order.userId, order, product_names);
+        await EmailService.sendOrderStatusUpdateEmail(
+          order.userId,
+          order,
+          product_names,
+        );
       }
     }
 
@@ -516,7 +529,6 @@ exports.updateOrderStatus = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 
 module.exports.createOrderFromCart = createOrderFromCart;
 module.exports.reduceStockForOrder = reduceStockForOrder;
