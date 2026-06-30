@@ -65,6 +65,7 @@ exports.createProduct = async (req, res) => {
       brand,
       partNumber,
       price,
+      mrp,
       discount,
       stock,
       warrantyMonths,
@@ -89,6 +90,7 @@ exports.createProduct = async (req, res) => {
       brand,
       partNumber,
       price,
+      mrp,
       discount: discount || 0,
       stock: stock || 0,
       warrantyMonths: warrantyMonths || 0,
@@ -173,6 +175,7 @@ exports.updateProduct = async (req, res) => {
       brand,
       partNumber,
       price,
+      mrp,
       discount,
       stock,
       warrantyMonths,
@@ -197,6 +200,7 @@ exports.updateProduct = async (req, res) => {
     if (brand !== undefined) product.brand = brand;
     if (partNumber !== undefined) product.partNumber = partNumber;
     if (price !== undefined) product.price = Number(price);
+    if (mrp !== undefined) product.mrp = Number(mrp);
     if (stock !== undefined) product.stock = Number(stock);
     if (discount !== undefined) product.discount = Number(discount);
     if (warrantyMonths !== undefined)
@@ -490,6 +494,7 @@ exports.bulkImportProducts = async (req, res) => {
       brand: product.brand,
       partNumber: product.partNumber,
       price: product.price,
+      mrp: product.mrp,
       discount: product.discount || 0,
       stock: product.stock || 0,
       warrantyMonths: product.warrantyMonths || 0,

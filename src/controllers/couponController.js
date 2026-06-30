@@ -80,22 +80,17 @@ exports.createCoupon = async (req, res) => {
 
     const resolvedCouponType = couponType || "public";
     let resolvedPerUserLimit = 1;
-    if (resolvedCouponType === "private") {
-      if (
-        per_user_limit !== undefined &&
-        per_user_limit !== "" &&
-        Number(per_user_limit) < 1
-      ) {
-        return res.status(400).json({
-          success: false,
-          error: "Per-user limit must be at least 1",
-        });
-      }
-      resolvedPerUserLimit =
-        per_user_limit !== undefined && per_user_limit !== ""
-          ? Number(per_user_limit)
-          : 1;
+
+    if (
+      per_user_limit !== undefined &&
+      per_user_limit !== "" &&
+      Number(per_user_limit) < 1
+    ) {
+      return res.status(400).json({success: false, error: "Per-user limit must be at least 1", });
     }
+
+    resolvedPerUserLimit = per_user_limit !== undefined && per_user_limit !== "" ? Number(per_user_limit) : 1;
+
 
     const coupon = await Coupon.create({
       code: normalizedCode,

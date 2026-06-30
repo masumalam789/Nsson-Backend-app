@@ -5,7 +5,6 @@ const Coupon = require('../models/Coupon');
 const UserCoupon = require('../models/UserCoupon');
 
 const getEffectivePerUserLimit = (coupon) => {
-  if (coupon.couponType === 'public') return 1;
   return coupon.per_user_limit ?? 1;
 };
 
