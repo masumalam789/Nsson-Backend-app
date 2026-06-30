@@ -244,6 +244,22 @@ exports.createOrder = async (req, res) => {
     await reduceStockForOrder(order);
     await clearCart(req.user._id);
 
+    await sendNotification(
+      [req.user._id],
+      "Order Placed",
+      `Your order of ${formatAmount(order.total)} has been placed successfully.`,
+      {
+        type: "order",
+        orderId: order._id,
+        paymentMethod: order.paymentMethod,
+        status: order.status,
+        amount: order.total,
+      },
+      true,
+      {},
+      false
+    )
+
     return res.status(201).json({
       success: true,
       message: "Order placed successfully",
