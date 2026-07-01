@@ -14,6 +14,7 @@ app.use(
       "https://nasson-moto-admin-panel.onrender.com",
       "https://nsson-admin-panel.vercel.app",
       "https://nsson-frontend-app-nine.vercel.app",
+      "https://nssonmotocrafter-admin.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
