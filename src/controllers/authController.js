@@ -7,6 +7,12 @@ const Product = require("../models/Product");
 const Order = require("../models/Order");
 const Category = require("../models/Category");
 const { generateUserToken, generateAdminToken } = require("../middleware/auth");
+const Cart = require("../models/Cart");
+const Address = require("../models/Address");
+const WishList = require("../models/WishList");
+const Notification = require("../models/Notification");
+const UserCoupon = require("../models/UserCoupon");
+
 const EmailService = require("../services/emailService");
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -862,3 +868,77 @@ exports.saveFcmToken = async (req, res) => {
     return res.status(500).json({ error: "Failed to save FCM token" });
   }
 };
+
+/**
+ * DELETE /auth/delete-account
+ * User deletes their own account.
+ * Drops all transient/personal data and anonymizes the user record to keep orders/payment history correct.
+ */
+exports.deleteAccount = async (req, res) => {
+  try {
+    const { password } = req.body;
+    const userId = req.user._id;
+
+    if (!password) {
+      return res.status(400).json({ error: "Password is required to delete your account" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: "Invalid password" });
+    }
+
+    // Check for any active orders
+    const activeOrders = await Order.findOne({
+      userId,
+      status: { $in: ["awaiting_payment", "pending", "processing", "shipped"] },
+    });
+
+    if (activeOrders) {
+      return res.status(400).json({
+        error: "Cannot delete account while you have active orders. Please cancel them or wait for delivery.",
+      });
+    }
+
+
+    // 1. Delete all transient/ephemeral customer data
+    await Promise.all([
+      Cart.deleteOne({ user: userId }),
+      Address.deleteMany({ userId }),
+      WishList.deleteMany({ userId }),
+      Notification.deleteMany({ userId }),
+      UserCoupon.deleteMany({ userId }),
+    ]);
+
+    // 2. Anonymize user fields (frees up the original email, scrubs PII, retains name as "Deleted User")
+    user.firstName = "Deleted";
+    user.lastName = "User";
+    user.email = `deleted_${userId}_${Date.now()}@deleted.com`;
+    user.password = await bcrypt.hash(crypto.randomBytes(16).toString("hex"), SALT_ROUNDS);
+    user.phone = "";
+    user.fcmToken = "";
+    user.address = "";
+    user.deviceTokens = [];
+    user.shopDetails = undefined;
+    user.status = "rejected"; // prevents any logins
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Your account has been deleted successfully.",
+    });
+  } catch (error) {
+    console.error("[Auth] deleteAccount error:", error);
+    return res.status(500).json({ error: "Failed to delete account. Please try again." });
+  }
+};
+
