@@ -1,6 +1,7 @@
 const { Address } = require('../config/db');
 const User = require('../models/User')
 
+
 // Get all addresses for a user
 const getUserAddresses = async (req, res) => {
   try {
